@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 
 from InvertedPendulum import InvertedPendulum
+from CartModel import CartModel
 
 from scipy.integrate import solve_ivp
 
@@ -44,12 +45,13 @@ if __name__=="__main__":
     # it is possible to derive with hand. The entire notes are in media folder or the
     # blog post for this entry. Otherwse in essense it is very similar to free_fall_pendulum.py
     # For more comments see free_fall_pendulum.py
-    sol = solve_ivp(func3, [0, 30], [ 0.0, 0., np.pi/2 - 0.1, 0. ],   t_eval=np.linspace( 0, 20, 300)  )
+    cartModel = CartModel(L =1.5, m=1, M=5, g=9.8)
+    sol = solve_ivp(cartModel.step, [0, 30], [ 0.0, 0., np.pi/2 - 0.1, 0. ], t_eval=np.linspace( 0, 20, 300))
 
 
     x_start = -5
     x_end = 5
-    pendulum_len = 1
+    pendulum_len = cartModel.L
     syst = InvertedPendulum(x_start, x_end, pendulum_len)
 
     for i, t in enumerate(sol.t):
