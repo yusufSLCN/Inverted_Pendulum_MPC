@@ -3,9 +3,12 @@
 
 import numpy as np
 import cv2
+from inverted_pendulum_model import InvertedPendulum
+import matplotlib.pyplot as plt
 
-class InvertedPendulum:
-    def __init__(self, x_start, x_end, pendulum_len = 1):
+
+class InvertedPendulumViz:
+    def __init__(self, x_start, x_end, pendulum_len=1):
         self.x_start = x_start
         self.x_end = x_end
         self.x_len = x_end - x_start
@@ -13,15 +16,14 @@ class InvertedPendulum:
         self.ground_y = 450
         self.num_ground_points = 21
         self.window_size = (512, 1024, 3)
-        self.m_to_pixel = self.window_size[1] / self.x_len 
+        self.m_to_pixel = self.window_size[1] / self.x_len
         self.pendulum_len = pendulum_len * self.m_to_pixel
-
 
     def step( self, state_vec, t=None ):
         """ state vector :
                 x0 : position of the cart
                 x1 : veclocity of the cart
-                x2 : angle of pendulum. In ref frame with x as forward of the cart and y as up. Angile with respect to ground plane
+                x2 : angle of pendulum. In ref frame with x as forward of the cart and y as up. Angle with respect to ground plane
                 x3 : angular velocity of the pendulum
         """
         cart_pos = state_vec[0]
@@ -67,44 +69,48 @@ class InvertedPendulum:
         cv2.circle( canvas, (pendulum_hinge_x+pendulum_bob_x, pendulum_hinge_y-pendulum_bob_y), 10, (255,255,255), -1 )
         cv2.line( canvas, (pendulum_hinge_x, pendulum_hinge_y), (pendulum_hinge_x+pendulum_bob_x, pendulum_hinge_y-pendulum_bob_y), (255,255,255), 3 )
 
-        # # Mark the current angle
-        # angle_display = bob_ang % 360
-        # if( angle_display > 180 ):
-        #     angle_display = -360+angle_display
-        # cv2.putText(canvas, f"theta= {angle_display:.1f} deg", (pendulum_hinge_x-15, pendulum_hinge_y-15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200,200,250), 1);
-
-
         # Display on top
         if t is not None:
             cv2.putText(canvas, f"t= {t:.2f} sec", (15, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200,200,250), 1)
             cv2.putText(canvas, f"theta= {bob_ang:.1f} deg", (15, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200,200,250), 1)
+            cv2.putText(canvas, f"theta_dot= {state_vec[3]:.2f} rad/s", (15, 75), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200,200,250), 1)
             cv2.putText(canvas, f"pos= {cart_pos:.2f} m", (15, 55), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200,200,250), 1)
+            cv2.putText(canvas, f"vel= {state_vec[1]:.2f} m/s", (15, 95), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200,200,250), 1)
 
         return canvas
 
 
 if __name__=="__main__":
-    syst = InvertedPendulum()
+    # Instantiate the model and visualization classes
+    pendulum_system = InvertedPendulum(m=.1, M=5.0, L=0.3)
+    viz = InvertedPendulumViz(x_start=-5, x_end=5, pendulum_len=1)
 
-    x = 0.
-    sx = 1.
-    theta = np.pi/3
-    stheta = np.pi/3
-    t = 0.
-    while True:
-        # x += sx*0.1
-        # theta += stheta*1.
-        # if( x > 5 ):
-        #     sx = -1.
-        # if( x < -5 ):
-        #     sx = 1.0
+    # Set initial conditions if needed
+    pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=1.57)
 
-        # theta = -9.8 / 1.5 * np.cos( t ) + 95.0 + 9.8/1.5
+    # Set simulation parameters
+    dt = 0.01
+    total_time = 50.0
+    num_steps = int(total_time / dt)
 
-        rendered = syst.step( [x,0,theta,0] )
-        cv2.imshow( 'im', rendered )
 
-        if cv2.waitKey(30) == ord('q'):
+    # Simulation loop
+    for i in range(num_steps):
+        # Get the current state from the model
+        current_state = pendulum_system.state
+
+        # Perform a simulation step using the model
+        pendulum_system.step(dt)
+
+        # Visualize the current state using the visualization class
+        canvas = viz.step([current_state.x, current_state.v, current_state.theta, current_state.theta_dot], t=i * dt)
+
+        # Display the canvas using cv2
+        cv2.imshow('Inverted Pendulum', canvas)
+        
+        # Break the loop if 'q' key is pressed
+        if cv2.waitKey(10) & 0xFF == ord('q'):
             break
 
-        t += 30./1000.
+    # Release the window
+    cv2.destroyAllWindows()
