@@ -1,9 +1,10 @@
 import numpy as np
 import cv2
+import time
 from scipy.optimize import minimize
 from inverted_pendulum_model import InvertedPendulum
 from inverted_pendulum_viz import InvertedPendulumViz
-
+from interactive_plot import InteractivePlot
 
 
 # MPC Objective Function
@@ -33,7 +34,7 @@ def objective(x, args_dict):
         # Penalize distance from goal angle
         Error += eth_W * np.abs(next_state.theta - goal_theta) ** 2
         # Penalize distance from goal position
-        Error += np.abs(next_state.x - goal_x) ** 2
+        Error += ex_W * np.abs(next_state.x - goal_x) ** 2
         # Penalize control effort
         # Error += np.abs(x[i]) ** 2
         # # # Penalize control changes
@@ -47,26 +48,26 @@ def objective(x, args_dict):
 def main():
     
     # Set simulation parameters
-    dt = 0.01
+    dt = 0.005
     total_time = 100.0
     num_steps = int(total_time / dt)
     
     #  MPC Parameters
-    P = 10  # Prediction horizon
+    P = 40  # Prediction horizon
 
     # Goal angle
-    goal_theta = np.pi / 2  
-    goal_x = 0.0  
+    goal_theta = np.pi / 2.0
+    goal_x = 0.0
 
     # Cost function weights
     eth_W = 100.0
-    ex_W = 5.0
+    ex_W = 100.0
     f_rate_W = 0.1
 
     # Bounds
     bounds = []
     for _ in range(P):
-        bounds.append((-100, 100))
+        bounds.append((-500, 500))
 
     # Initialize the model and MPC optimizer
     pendulum_system = InvertedPendulum(m=.1, M=5.0, L=0.3)
@@ -74,6 +75,9 @@ def main():
     # Instantiate the model and visualization classes    
     viz = InvertedPendulumViz(x_start=-5, x_end=5, pendulum_len=1)
 
+    # Create an instance of the InteractivePlot class
+    interactive_plot = InteractivePlot()
+    
     # Initial state
     pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=1.57)
     init_state = pendulum_system.state
@@ -95,9 +99,11 @@ def main():
 
         args_dict['init_state'] = init_state
         # Run the optimizer
+        st = time.time()
         result = minimize(objective, initial_guess, args=(args_dict),
-                          method='SLSQP', bounds=bounds, options={'disp': False})
-
+                          method='SLSQP', bounds=bounds, 
+                          options={'disp': False})
+        print("Time taken for optimization: ", time.time() - st)
         # Extract optimal control inputs
         optimal_controls = result.x
 
@@ -108,13 +114,16 @@ def main():
         # Update the initial state
         init_state = pendulum_system.state
         
-
+        # at time = 50, apply disturbance
+        if i == 500:
+            pendulum_system.apply_disturbance(0.1)
+        
         # Visualize the current state using the visualization class
         canvas = viz.step([pendulum_system.state.x, pendulum_system.state.v, pendulum_system.state.theta, pendulum_system.state.theta_dot], t=i * dt)
 
         # Display the canvas using cv2
         cv2.imshow('Inverted Pendulum', canvas)
-        
+                
         # Break the loop if 'q' key is pressed
         if cv2.waitKey(int(dt*1000)) & 0xFF == ord('q'):
             break

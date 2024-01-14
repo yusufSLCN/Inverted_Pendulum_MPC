@@ -46,4 +46,11 @@ class InvertedPendulum:
         self.state = final_state
 
         return final_state
+    
+    # TODO: Add Linearized model and Linearized model step function
+    
+    def apply_disturbance(self, angle_disturbance, pos_disturbance=0):
+        self.state.theta += angle_disturbance
+        self.state.x += pos_disturbance
+        
 
