@@ -44,6 +44,23 @@ def objective(x, args_dict):
         init_state_1 = next_state
     return Error
 
+def update_angle_goal(current_time):
+    """
+    Update the angle goal based on a sine wave.
+
+    Parameters:
+    - current_time: Current time.
+
+    Returns:
+    - angle_goal: Updated angle goal.
+    """
+    amplitude = 1
+    frequency = 0.1
+    offset = np.pi/2
+    t = current_time
+    angle_goal = amplitude * np.sin(2 * np.pi * frequency * t + offset)
+    return angle_goal
+
 
 def main():
     
@@ -71,6 +88,7 @@ def main():
 
     # Initialize the model and MPC optimizer
     pendulum_system = InvertedPendulum(m=.1, M=5.0, L=0.3)
+    # pendulum_system.uncertainty_gaussian_std = 0.02
     
     # Instantiate the model and visualization classes    
     viz = InvertedPendulumViz(x_start=-5, x_end=5, pendulum_len=1)
@@ -103,7 +121,7 @@ def main():
         result = minimize(objective, initial_guess, args=(args_dict),
                           method='SLSQP', bounds=bounds, 
                           options={'disp': False})
-        print("Time taken for optimization: ", time.time() - st)
+        # print("Time taken for optimization: ", time.time() - st)
         # Extract optimal control inputs
         optimal_controls = result.x
 
@@ -117,6 +135,12 @@ def main():
         # at time = 50, apply disturbance
         if i == 500:
             pendulum_system.apply_disturbance(0.1)
+            
+        # every 1 second, update the goal angle to random value between 80 and 100 degrees
+        # if i % 50 == 0:
+        #     goal_theta = np.random.uniform(80, 100) * np.pi / 180.0
+        #     args_dict['goal_theta'] = goal_theta
+        #     print("Goal angle: ", goal_theta * 180.0 / np.pi)
         
         # Visualize the current state using the visualization class
         canvas = viz.step([pendulum_system.state.x, pendulum_system.state.v, pendulum_system.state.theta, pendulum_system.state.theta_dot], t=i * dt)

@@ -6,6 +6,7 @@ class InvertedPendulum:
         self.m = m  # Mass of the bob
         self.M = M  # Mass of the cart
         self.g = g  # Gravitational acceleration
+        self.uncertainty_gaussian_std = 0.0
 
         self.state = self.State()
         self.inputs = self.Inputs()
@@ -41,6 +42,10 @@ class InvertedPendulum:
         final_state.v = v + x_ddot * dt + damping_x * dt
         final_state.theta = theta + theta_dot * dt
         final_state.theta_dot = theta_dot + theta_ddot * dt + damping_theta * dt
+        if self.uncertainty_gaussian_std > 0:
+            # to simulate uncertainty in the model and sensors
+            final_state.theta += np.random.normal(0, self.uncertainty_gaussian_std)
+        
 
         # Update the internal state
         self.state = final_state
@@ -52,5 +57,12 @@ class InvertedPendulum:
     def apply_disturbance(self, angle_disturbance, pos_disturbance=0):
         self.state.theta += angle_disturbance
         self.state.x += pos_disturbance
+    
+    def set_uncertainty_gaussian_std(self, std):
+        self.uncertainty_gaussian_std = std
+    
+    def reset(self):
+        self.state = self.State()
+        self.inputs = self.Inputs()
         
 
