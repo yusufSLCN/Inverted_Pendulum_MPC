@@ -54,8 +54,8 @@ class InvertedPendulumViz:
         # Cart base
         cart_base_start = int((cart_pos - 0.5 - self.x_start) * self.m_to_pixel)
         cart_base_end   = int((cart_pos + 0.5 - self.x_start) * self.m_to_pixel)
-        cart_base_y = 380
-        cv2.line(canvas, (cart_base_start, cart_base_y), (cart_base_end, 380), (255,255,255), 6 )
+        cart_base_y = self.ground_y - 60
+        cv2.line(canvas, (cart_base_start, cart_base_y), (cart_base_end, cart_base_y), (255,255,255), 6 )
 
         # Pendulum hinge
         pendulum_hinge_x = int((cart_pos - self.x_start) * self.m_to_pixel)

@@ -1,76 +1,29 @@
 import numpy as np
 import cv2
 import time
+import argparse
+import matplotlib.pyplot as plt
 from scipy.optimize import minimize
+from controlled_cart_and_pendulum import objective
 from inverted_pendulum_model import InvertedPendulum
 from inverted_pendulum_viz import InvertedPendulumViz
-from interactive_plot import InteractivePlot
 
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-r', '--render', action='store_true')
+    parser.add_argument('-p', '--plot', action='store_true')
+    args = parser.parse_args()
 
-# MPC Objective Function
-def objective(x, args_dict):
-    
-    # Unpack the arguments
-    goal_theta = args_dict['goal_theta']
-    goal_x = args_dict['goal_x']
-    init_state = args_dict['init_state']
-    P = args_dict['P']
-    eth_W = args_dict['eth_W']
-    ex_W = args_dict['ex_W']
-    f_rate_W = args_dict['f_rate_W']
-    dt = args_dict['dt']
-    m = args_dict['m']
-    M = args_dict['M']
-    L = args_dict['L']
-    
-    Error = 0
-    init_state_1 = init_state
-    # Initialize the virtual model
-    vir_model = InvertedPendulum(m=m, M=M, L=L)
-    vir_model.state = init_state_1
-    for i in range(P):
-        vir_model.inputs.force = x[i]
-        next_state = vir_model.step(dt)
-        # Penalize distance from goal angle
-        Error += eth_W * np.abs(next_state.theta - goal_theta) ** 2
-        # Penalize distance from goal position
-        Error += ex_W * np.abs(next_state.x - goal_x) ** 2
-        # Penalize control effort
-        # Error += np.abs(x[i]) ** 2
-        # # # Penalize control changes
-        # if i > 0:
-        #     Error += f_rate_W * np.abs(x[i] - x[i - 1]) ** 2
+    if args.plot:
+        state_buffer = []
 
-        init_state_1 = next_state
-    return Error
-
-def update_angle_goal(current_time):
-    """
-    Update the angle goal based on a sine wave.
-
-    Parameters:
-    - current_time: Current time.
-
-    Returns:
-    - angle_goal: Updated angle goal.
-    """
-    amplitude = 1
-    frequency = 0.1
-    offset = np.pi/2
-    t = current_time
-    angle_goal = amplitude * np.sin(2 * np.pi * frequency * t + offset)
-    return angle_goal
-
-
-def main():
-    
     # Set simulation parameters
     dt = 0.01
-    total_time = 100.0
+    total_time = 2.0
     num_steps = int(total_time / dt)
     
     #  MPC Parameters
-    P = 40  # Prediction horizon
+    P = 80  # Prediction horizon
 
     # Goal angle
     goal_theta = np.pi / 2.0
@@ -87,17 +40,14 @@ def main():
         bounds.append((-500, 500))
 
     # Initialize the model and MPC optimizer
-    pendulum_system = InvertedPendulum(m=0.5, M=5.0, L=1)
+    pendulum_system = InvertedPendulum(m=0.1, M=5.0, L=1)
     # pendulum_system.uncertainty_gaussian_std = 0.02
     
     # Instantiate the model and visualization classes    
     viz = InvertedPendulumViz(x_start=-5, x_end=5, pendulum_len=1)
-
-    # Create an instance of the InteractivePlot class
-    interactive_plot = InteractivePlot()
     
     # Initial state
-    init_angle = np.pi / 3
+    init_angle = np.pi / 2.5
     pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=init_angle)
     init_state = pendulum_system.state
         
@@ -116,6 +66,9 @@ def main():
     # MPC Control Loop
     for i in range(num_steps):
 
+        if args.plot:
+            state_buffer.append(init_state)
+
         args_dict['init_state'] = init_state
         # Run the optimizer
         st = time.time()
@@ -132,6 +85,8 @@ def main():
         
         # Update the initial state
         init_state = pendulum_system.state
+        if np.abs(init_state.x - goal_x)/goal_x < 0.05 and np.abs(init_state.theta - goal_theta)/ goal_theta < 0.05:
+            break
         
         #Update the initial guess
         next_init_guess = np.zeros_like(initial_guess)
@@ -141,27 +96,46 @@ def main():
         # at time = 50, apply disturbance
         # if i == 500:
         #     pendulum_system.apply_disturbance(0.1)
-            
-        # every 1 second, update the goal angle to random value between 80 and 100 degrees
-        # if i % 50 == 0:
-        #     goal_theta = np.random.uniform(80, 100) * np.pi / 180.0
-        #     args_dict['goal_theta'] = goal_theta
-        #     print("Goal angle: ", goal_theta * 180.0 / np.pi)
-        
+
         # Visualize the current state using the visualization class
-        canvas = viz.step([pendulum_system.state.x, pendulum_system.state.v, pendulum_system.state.theta, pendulum_system.state.theta_dot], t=i * dt)
-
-        # Display the canvas using cv2
-        cv2.imshow('Inverted Pendulum', canvas)
-                
-        # Break the loop if 'q' key is pressed
-        if cv2.waitKey(int(dt*1000)) & 0xFF == ord('q'):
-            break
+        if args.render:
+            canvas = viz.step([pendulum_system.state.x, pendulum_system.state.v, pendulum_system.state.theta, pendulum_system.state.theta_dot], t=i * dt)
+            # Display the canvas using cv2
+            cv2.imshow('Inverted Pendulum', canvas)
         
+        print(f'Sim-iter {i + 1} / {num_steps}: x= {init_state.x:.2f} / {goal_x:.2f}, v={init_state.v:.2f}, theta={init_state.theta:.2f} / {goal_theta:.2f}')
+
+        # Break the loop if 'q' key is pressed
+        if cv2.waitKey(10) & 0xFF == ord('q'):
+            break
+    
     cv2.destroyAllWindows()
+    
+    if args.plot:
+        cart_poss = [s.x for s in state_buffer]
+        pendulum_angles = [s.theta for s in state_buffer]
+        idx = np.arange(len(cart_poss))
 
+        fig, axs = plt.subplots(2, 1, figsize=(8, 6))
 
+        # Plot cart position
+        axs[0].plot(idx, cart_poss, label='Cart Position')
+        axs[0].axhline(y=goal_x, color='red', linestyle='--', label='Target', linewidth=2)
+        axs[0].set_xlabel('Time')
+        axs[0].set_ylabel('Position')
+        axs[0].legend()
 
+        # Plot pendulum angle
+        axs[1].plot(idx, pendulum_angles, label='Pendulum Angle')
+        axs[1].axhline(y=goal_theta, color='red', linestyle='--', label='Target', linewidth=2)
+        axs[1].set_xlabel('Time')
+        axs[1].set_ylabel('Angle')
+        axs[1].legend()
 
-if __name__=="__main__":
-    main()
+        # Adjust layout
+        plt.tight_layout()
+
+        # Show the plots
+        plt.show()
+
+        
