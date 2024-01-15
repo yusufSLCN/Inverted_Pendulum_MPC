@@ -15,7 +15,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.plot:
-        state_buffer = []
+        state_logs = []
+        error_logs = []
 
     # Set simulation parameters
     dt = 0.01
@@ -65,16 +66,17 @@ if __name__ == "__main__":
 
     # MPC Control Loop
     for i in range(num_steps):
-
-        if args.plot:
-            state_buffer.append(init_state)
-
         args_dict['init_state'] = init_state
         # Run the optimizer
         st = time.time()
         result = minimize(objective, initial_guess, args=(args_dict),
                           method='SLSQP', bounds=bounds, 
                           options={'disp': True})
+        
+        if args.plot:
+            state_logs.append(init_state)
+            error_logs.append(result.fun)
+
         # print("Time taken for optimization: ", time.time() - st)
         # Extract optimal control inputs
         optimal_controls = result.x
@@ -112,11 +114,11 @@ if __name__ == "__main__":
     cv2.destroyAllWindows()
     
     if args.plot:
-        cart_poss = [s.x for s in state_buffer]
-        pendulum_angles = [s.theta for s in state_buffer]
+        cart_poss = [s.x for s in state_logs]
+        pendulum_angles = [s.theta for s in state_logs]
         idx = np.arange(len(cart_poss))
 
-        fig, axs = plt.subplots(2, 1, figsize=(8, 6))
+        fig, axs = plt.subplots(3, 1, figsize=(10, 6))
 
         # Plot cart position
         axs[0].plot(idx, cart_poss, label='Cart Position')
@@ -131,6 +133,12 @@ if __name__ == "__main__":
         axs[1].set_xlabel('Time')
         axs[1].set_ylabel('Angle')
         axs[1].legend()
+
+        # Objective
+        axs[2].plot(idx, error_logs, label='Error')
+        axs[2].set_xlabel('Time')
+        axs[2].set_ylabel('Error')
+        axs[2].legend()
 
         # Adjust layout
         plt.tight_layout()
