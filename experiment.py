@@ -83,7 +83,8 @@ if __name__ == "__main__":
 
         # Apply the first control input to the system
         pendulum_system.inputs.force = optimal_controls[0]        
-        pendulum_system.step(dt)
+        # pendulum_system.step_euler(dt)
+        pendulum_system.step_rk4(dt)
         
         # Update the initial state
         init_state = pendulum_system.state

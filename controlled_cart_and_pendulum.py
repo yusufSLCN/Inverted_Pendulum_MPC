@@ -30,7 +30,7 @@ def objective(x, args_dict):
     vir_model.state = init_state_1
     for i in range(P):
         vir_model.inputs.force = x[i]
-        next_state = vir_model.step(dt)
+        next_state = vir_model.step_euler(dt)
         # Penalize distance from goal angle
         Error += eth_W * np.abs(next_state.theta - goal_theta) ** 2
         # Penalize distance from goal position
@@ -97,7 +97,7 @@ def main():
     interactive_plot = InteractivePlot()
     
     # Initial state
-    init_angle = np.pi / 3
+    init_angle = np.pi / 2.5
     pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=init_angle)
     init_state = pendulum_system.state
         
@@ -128,7 +128,7 @@ def main():
 
         # Apply the first control input to the system
         pendulum_system.inputs.force = optimal_controls[0]        
-        pendulum_system.step(dt)
+        pendulum_system.step_euler(dt)
         
         # Update the initial state
         init_state = pendulum_system.state
