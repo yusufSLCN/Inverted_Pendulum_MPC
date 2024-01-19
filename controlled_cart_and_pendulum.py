@@ -30,7 +30,7 @@ def objective(x, args_dict):
     vir_model.state = init_state_1
     for i in range(P):
         vir_model.inputs.force = x[i]
-        next_state = vir_model.step(dt)
+        next_state = vir_model.step_rk4(dt)
         # Penalize distance from goal angle
         Error += eth_W * np.abs(next_state.theta - goal_theta) ** 2
         # Penalize distance from goal position
@@ -65,16 +65,16 @@ def update_angle_goal(current_time):
 def main():
     
     # Set simulation parameters
-    dt = 0.01
+    dt = 0.05
     total_time = 100.0
     num_steps = int(total_time / dt)
     
     #  MPC Parameters
-    P = 40  # Prediction horizon
+    P = 20  # Prediction horizon
 
     # Goal angle
     goal_theta = np.pi / 2.0
-    goal_x = 1.0
+    goal_x = -1.0
 
     # Cost function weights
     eth_W = 100.0
@@ -97,7 +97,7 @@ def main():
     interactive_plot = InteractivePlot()
     
     # Initial state
-    pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=1.4)
+    pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=1.57)
     init_state = pendulum_system.state
         
     # Initial guess for the control inputs
@@ -112,13 +112,14 @@ def main():
                  'dt': dt,
                  'm': pendulum_system.m, 'M': pendulum_system.M, 'L': pendulum_system.L}
 
+    inputs_list = []
     # MPC Control Loop
     for i in range(num_steps):
 
         # Run the optimizer
         st = time.time()
         result = minimize(objective, initial_guess, args=(args_dict),
-                          method='COBYLA', bounds=bounds, 
+                          method='SLSQP', bounds=bounds, 
                           options={'disp': True})
         # print("Time taken for optimization: ", time.time() - st)
         # Extract optimal control inputs
@@ -126,22 +127,18 @@ def main():
 
         # Apply the first control input to the system
         pendulum_system.inputs.force = optimal_controls[0]        
-        pendulum_system.step(dt)
+        pendulum_system.step_rk4(dt)
         
         # Update the initial state
         init_state = pendulum_system.state
         args_dict['init_state'] = init_state
+        
+        inputs_list.append(optimal_controls[0])
 
         
         # at time = 50, apply disturbance
-        if i == 200:
+        if i == 75:
             pendulum_system.apply_disturbance(0.1)
-            
-        # every 1 second, update the goal angle to random value between 80 and 100 degrees
-        # if i % 50 == 0:
-        #     goal_theta = np.random.uniform(80, 100) * np.pi / 180.0
-        #     args_dict['goal_theta'] = goal_theta
-        #     print("Goal angle: ", goal_theta * 180.0 / np.pi)
         
         # Visualize the current state using the visualization class
         canvas = viz.step([pendulum_system.state.x, pendulum_system.state.v, pendulum_system.state.theta, pendulum_system.state.theta_dot], t=i * dt)
@@ -152,6 +149,7 @@ def main():
         # Break the loop if 'q' key is pressed
         if cv2.waitKey(int(dt*1000)) & 0xFF == ord('q'):
             break
+        
         
     cv2.destroyAllWindows()
 
