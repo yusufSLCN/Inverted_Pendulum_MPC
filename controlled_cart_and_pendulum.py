@@ -65,7 +65,7 @@ def update_angle_goal(current_time):
 def main():
     
     # Set simulation parameters
-    dt = 0.005
+    dt = 0.01
     total_time = 100.0
     num_steps = int(total_time / dt)
     
@@ -97,7 +97,7 @@ def main():
     interactive_plot = InteractivePlot()
     
     # Initial state
-    pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=1.57)
+    pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=1)
     init_state = pendulum_system.state
         
     # Initial guess for the control inputs

@@ -28,24 +28,35 @@ class InvertedPendulum:
         # Unpack state variables
         x, v, theta, theta_dot = self.state.x, self.state.v, self.state.theta, self.state.theta_dot
 
-        # Update state variables
-        x_ddot = self.inputs.force - self.m * self.L* theta_dot * theta_dot * np.cos(theta) + self.m * self.g * np.cos(theta) *  np.sin(theta)
-        x_ddot = x_ddot / (self.M + self.m - self.m * np.sin(theta) * np.sin(theta))
+        # Runge-Kutta integration
+        k1x = v * dt
+        k1v = (self.inputs.force - self.m * self.L * theta_dot**2 * np.cos(theta) + self.m * self.g * np.cos(theta) * np.sin(theta)) / (self.M + self.m - self.m * np.sin(theta)**2) * dt
+        k1theta = theta_dot * dt
+        k1theta_dot = (-self.g/self.L * np.cos(theta) - 1./self.L * np.sin(theta) * (self.inputs.force - self.m * self.L * theta_dot**2 * np.cos(theta) + self.m * self.g * np.cos(theta) * np.sin(theta)) / (self.M + self.m - self.m * np.sin(theta)**2)) * dt
 
-        theta_ddot = -self.g/self.L * np.cos(theta) - 1./self.L * np.sin(theta) * x_ddot
+        k2x = (v + 0.5 * k1v) * dt
+        k2v = (self.inputs.force - self.m * self.L * (theta_dot + 0.5 * k1theta_dot)**2 * np.cos(theta + 0.5 * k1theta) + self.m * self.g * np.cos(theta + 0.5 * k1theta) * np.sin(theta + 0.5 * k1theta)) / (self.M + self.m - self.m * np.sin(theta + 0.5 * k1theta)**2) * dt
+        k2theta = (theta_dot + 0.5 * k1theta_dot) * dt
+        k2theta_dot = (-self.g/self.L * np.cos(theta + 0.5 * k1theta) - 1./self.L * np.sin(theta + 0.5 * k1theta) * (self.inputs.force - self.m * self.L * (theta_dot + 0.5 * k1theta_dot)**2 * np.cos(theta + 0.5 * k1theta) + self.m * self.g * np.cos(theta + 0.5 * k1theta) * np.sin(theta + 0.5 * k1theta)) / (self.M + self.m - self.m * np.sin(theta + 0.5 * k1theta)**2)) * dt
 
-        damping_theta =  -0.5 * theta_dot
-        damping_x =  -1.0 * v
+        k3x = (v + 0.5 * k2v) * dt
+        k3v = (self.inputs.force - self.m * self.L * (theta_dot + 0.5 * k2theta_dot)**2 * np.cos(theta + 0.5 * k2theta) + self.m * self.g * np.cos(theta + 0.5 * k2theta) * np.sin(theta + 0.5 * k2theta)) / (self.M + self.m - self.m * np.sin(theta + 0.5 * k2theta)**2) * dt
+        k3theta = (theta_dot + 0.5 * k2theta_dot) * dt
+        k3theta_dot = (-self.g/self.L * np.cos(theta + 0.5 * k2theta) - 1./self.L * np.sin(theta + 0.5 * k2theta) * (self.inputs.force - self.m * self.L * (theta_dot + 0.5 * k2theta_dot)**2 * np.cos(theta + 0.5 * k2theta) + self.m * self.g * np.cos(theta + 0.5 * k2theta) * np.sin(theta + 0.5 * k2theta)) / (self.M + self.m - self.m * np.sin(theta + 0.5 * k2theta)**2)) * dt
 
-        # Update state variables
-        final_state.x = x + v * dt
-        final_state.v = v + x_ddot * dt + damping_x * dt
-        final_state.theta = theta + theta_dot * dt
-        final_state.theta_dot = theta_dot + theta_ddot * dt + damping_theta * dt
-        if self.uncertainty_gaussian_std > 0:
-            # to simulate uncertainty in the model and sensors
-            final_state.theta += np.random.normal(0, self.uncertainty_gaussian_std)
-        
+        k4x = (v + k3v) * dt
+        k4v = (self.inputs.force - self.m * self.L * (theta_dot + k3theta_dot)**2 * np.cos(theta + k3theta) + self.m * self.g * np.cos(theta + k3theta) * np.sin(theta + k3theta)) / (self.M + self.m - self.m * np.sin(theta + k3theta)**2) * dt
+        k4theta = (theta_dot + k3theta_dot) * dt
+        k4theta_dot = (-self.g/self.L * np.cos(theta + k3theta) - 1./self.L * np.sin(theta + k3theta) * (self.inputs.force - self.m * self.L * (theta_dot + k3theta_dot)**2 * np.cos(theta + k3theta) + self.m * self.g * np.cos(theta + k3theta) * np.sin(theta + k3theta)) / (self.M + self.m - self.m * np.sin(theta + k3theta)**2)) * dt
+
+        final_state.x = x + (k1x + 2*k2x + 2*k3x + k4x) / 6.0
+        final_state.v = v + (k1v + 2*k2v + 2*k3v + k4v) / 6.0
+        final_state.theta = theta + (k1theta + 2*k2theta + 2*k3theta + k4theta) / 6.0
+        final_state.theta_dot = theta_dot + (k1theta_dot + 2*k2theta_dot + 2*k3theta_dot + k4theta_dot) / 6.0
+
+        # if self.uncertainty_gaussian_std > 0:
+        #     # to simulate uncertainty in the model and sensors
+        #     final_state.theta += np.random.normal(0, self.uncertainty_gaussian_std)
 
         # Update the internal state
         self.state = final_state
