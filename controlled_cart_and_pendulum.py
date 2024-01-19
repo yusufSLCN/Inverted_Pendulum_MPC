@@ -36,8 +36,8 @@ def objective(x, args_dict):
         # Penalize distance from goal position
         Error += ex_W * np.abs(next_state.x - goal_x) ** 2
         # Penalize control effort
-        # Error += np.abs(x[i]) ** 2
-        # # # Penalize control changes
+        # Error += x[i] ** 2
+        #  Penalize control changes
         # if i > 0:
         #     Error += f_rate_W * np.abs(x[i] - x[i - 1]) ** 2
 
@@ -65,7 +65,7 @@ def update_angle_goal(current_time):
 def main():
     
     # Set simulation parameters
-    dt = 0.005
+    dt = 0.01
     total_time = 100.0
     num_steps = int(total_time / dt)
     
@@ -74,7 +74,7 @@ def main():
 
     # Goal angle
     goal_theta = np.pi / 2.0
-    goal_x = 0.0
+    goal_x = 1.0
 
     # Cost function weights
     eth_W = 100.0
@@ -84,7 +84,7 @@ def main():
     # Bounds
     bounds = []
     for _ in range(P):
-        bounds.append((-500, 500))
+        bounds.append((-50, 50))
 
     # Initialize the model and MPC optimizer
     pendulum_system = InvertedPendulum(m=.1, M=5.0, L=0.3)
@@ -97,7 +97,7 @@ def main():
     interactive_plot = InteractivePlot()
     
     # Initial state
-    pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=1.57)
+    pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=1.4)
     init_state = pendulum_system.state
         
     # Initial guess for the control inputs
@@ -115,12 +115,11 @@ def main():
     # MPC Control Loop
     for i in range(num_steps):
 
-        args_dict['init_state'] = init_state
         # Run the optimizer
         st = time.time()
         result = minimize(objective, initial_guess, args=(args_dict),
-                          method='SLSQP', bounds=bounds, 
-                          options={'disp': False})
+                          method='COBYLA', bounds=bounds, 
+                          options={'disp': True})
         # print("Time taken for optimization: ", time.time() - st)
         # Extract optimal control inputs
         optimal_controls = result.x
@@ -131,9 +130,11 @@ def main():
         
         # Update the initial state
         init_state = pendulum_system.state
+        args_dict['init_state'] = init_state
+
         
         # at time = 50, apply disturbance
-        if i == 500:
+        if i == 200:
             pendulum_system.apply_disturbance(0.1)
             
         # every 1 second, update the goal angle to random value between 80 and 100 degrees
