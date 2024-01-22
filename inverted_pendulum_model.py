@@ -49,14 +49,17 @@ class InvertedPendulum:
         k4theta = (theta_dot + k3theta_dot) * dt
         k4theta_dot = (-self.g/self.L * np.cos(theta + k3theta) - 1./self.L * np.sin(theta + k3theta) * (self.inputs.force - self.m * self.L * (theta_dot + k3theta_dot)**2 * np.cos(theta + k3theta) + self.m * self.g * np.cos(theta + k3theta) * np.sin(theta + k3theta)) / (self.M + self.m - self.m * np.sin(theta + k3theta)**2)) * dt
 
-        final_state.x = x + (k1x + 2*k2x + 2*k3x + k4x) / 6.0
-        final_state.v = v + (k1v + 2*k2v + 2*k3v + k4v) / 6.0
-        final_state.theta = theta + (k1theta + 2*k2theta + 2*k3theta + k4theta) / 6.0
-        final_state.theta_dot = theta_dot + (k1theta_dot + 2*k2theta_dot + 2*k3theta_dot + k4theta_dot) / 6.0
+        damping_theta = -0.5 * theta_dot
+        damping_x = -1.0 * v
 
-        # if self.uncertainty_gaussian_std > 0:
-        #     # to simulate uncertainty in the model and sensors
-        #     final_state.theta += np.random.normal(0, self.uncertainty_gaussian_std)
+        final_state.x = x + dt*(k1x + 2*k2x + 2*k3x + k4x) / 6.0
+        final_state.v = v + dt*(k1v + 2*k2v + 2*k3v + k4v)/ 6.0 + damping_x * dt
+        final_state.theta = theta + dt*(k1theta + 2*k2theta + 2*k3theta + k4theta) / 6.0
+        final_state.theta_dot = theta_dot + dt*(k1theta_dot + 2*k2theta_dot + 2*k3theta_dot + k4theta_dot) / 6.0 + damping_theta*dt
+
+        if self.uncertainty_gaussian_std > 0:
+            # to simulate uncertainty in the model and sensors
+            final_state.theta += np.random.normal(0, self.uncertainty_gaussian_std)
 
         # Update the internal state
         self.state = final_state
