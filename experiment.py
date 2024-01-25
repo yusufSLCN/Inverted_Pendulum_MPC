@@ -17,14 +17,14 @@ if __name__ == "__main__":
     if args.plot:
         state_logs = []
         error_logs = []
-
+        
     # Set simulation parameters
-    dt = 0.01
-    total_time = 2.0
+    dt = 0.05
+    total_time = 10.0
     num_steps = int(total_time / dt)
-    
+
     #  MPC Parameters
-    P = 80  # Prediction horizon
+    P = 40  # Prediction horizon
 
     # Goal angle
     goal_theta = np.pi / 2.0
@@ -38,18 +38,17 @@ if __name__ == "__main__":
     # Bounds
     bounds = []
     for _ in range(P):
-        bounds.append((-500, 500))
+        bounds.append((-100, 100))
 
     # Initialize the model and MPC optimizer
-    pendulum_system = InvertedPendulum(m=0.1, M=5.0, L=1)
+    pendulum_system = InvertedPendulum(m=0.5, M=5.0, L=1)
     # pendulum_system.uncertainty_gaussian_std = 0.02
     
     # Instantiate the model and visualization classes    
     viz = InvertedPendulumViz(x_start=-5, x_end=5, pendulum_len=1)
     
     # Initial state
-    init_angle = np.pi / 2.5
-    pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=init_angle)
+    pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=1)
     init_state = pendulum_system.state
         
     # Initial guess for the control inputs
@@ -70,8 +69,8 @@ if __name__ == "__main__":
         # Run the optimizer
         st = time.time()
         result = minimize(objective, initial_guess, args=(args_dict),
-                          method='SLSQP', bounds=bounds, 
-                          options={'disp': True})
+                          method='SLSQP', 
+                          options={'disp': False})
         
         if args.plot:
             state_logs.append(init_state)
@@ -84,10 +83,11 @@ if __name__ == "__main__":
         # Apply the first control input to the system
         pendulum_system.inputs.force = optimal_controls[0]        
         # pendulum_system.step_euler(dt)
-        pendulum_system.step_rk4(dt)
+        pendulum_system.step(dt)
         
         # Update the initial state
         init_state = pendulum_system.state
+
         if np.abs(init_state.x - goal_x)/goal_x < 0.05 and np.abs(init_state.theta - goal_theta)/ goal_theta < 0.05:
             break
         
@@ -95,10 +95,6 @@ if __name__ == "__main__":
         next_init_guess = np.zeros_like(initial_guess)
         next_init_guess[:-1] = optimal_controls[1:]
         initial_guess = next_init_guess
-
-        # at time = 50, apply disturbance
-        # if i == 500:
-        #     pendulum_system.apply_disturbance(0.1)
 
         # Visualize the current state using the visualization class
         if args.render:
@@ -109,7 +105,7 @@ if __name__ == "__main__":
         print(f'Sim-iter {i + 1} / {num_steps}: x= {init_state.x:.2f} / {goal_x:.2f}, v={init_state.v:.2f}, theta={init_state.theta:.2f} / {goal_theta:.2f}')
 
         # Break the loop if 'q' key is pressed
-        if cv2.waitKey(10) & 0xFF == ord('q'):
+        if cv2.waitKey(int(dt*1000)) & 0xFF == ord('q'):
             break
     
     cv2.destroyAllWindows()

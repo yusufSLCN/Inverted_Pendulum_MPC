@@ -31,7 +31,7 @@ def objective(x, args_dict):
     vir_model.state = init_state_1
     for i in range(P):
         vir_model.inputs.force = x[i]
-        next_state = vir_model.step_euler(dt)
+        next_state = vir_model.step(dt)
         # Penalize distance from goal angle
         Error += eth_W * np.abs(next_state.theta - goal_theta) ** 2
         # Penalize distance from goal position
@@ -94,9 +94,6 @@ def main():
     # Instantiate the model and visualization classes
     viz = InvertedPendulumViz(x_start=-5, x_end=5, pendulum_len=1)
 
-    # Create an instance of the InteractivePlot class
-    interactive_plot = InteractivePlot()
-
     # Initial state
     pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=1)
     init_state = pendulum_system.state
@@ -144,15 +141,15 @@ def main():
             # Update the initial state
             init_state = pendulum_system.state
             args_dict['init_state'] = init_state
-            # at time = 50, apply disturbance
-            if i == 50:
-                pendulum_system.apply_disturbance(0.1)
 
-            # every 1 second, update the goal angle to random value between 80 and 100 degrees
-            # if i % 50 == 0:
-            #     goal_theta = np.random.uniform(80, 100) * np.pi / 180.0
-            #     args_dict['goal_theta'] = goal_theta
-            #     print("Goal angle: ", goal_theta * 180.0 / np.pi)
+            # Update the initial guess
+            next_init_guess = np.zeros_like(initial_guess)
+            next_init_guess[:-1] = optimal_controls[1:]
+            initial_guess = next_init_guess
+
+            # at time = 50, apply disturbance
+            # if i == 50:
+            #     pendulum_system.apply_disturbance(0.1)
 
             # Visualize the current state using the visualization class
             canvas = viz.step([pendulum_system.state.x, pendulum_system.state.v, pendulum_system.state.theta,
@@ -160,10 +157,6 @@ def main():
 
             # Display the canvas using cv2
             cv2.imshow('Inverted Pendulum', canvas)
-
-
-
-
 
             # # Break the loop if 'q' key is pressed
             if cv2.waitKey(int(dt*1000)) & 0xFF == ord('q'):
