@@ -8,15 +8,11 @@ from controlled_cart_and_pendulum import objective
 from inverted_pendulum_model import InvertedPendulum
 from inverted_pendulum_viz import InvertedPendulumViz
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-r', '--render', action='store_true')
-    parser.add_argument('-p', '--plot', action='store_true')
-    args = parser.parse_args()
 
-    if args.plot:
-        state_logs = []
-        error_logs = []
+def experiment(solver_type, args):
+    sim_iter = 0
+    state_logs = []
+    error_logs = []
         
     # Set simulation parameters
     dt = 0.05
@@ -33,7 +29,7 @@ if __name__ == "__main__":
     # Cost function weights
     eth_W = 100.0
     ex_W = 100.0
-    f_rate_W = 0.1
+    f_rate_W = 0.01
 
     # Bounds
     bounds = []
@@ -65,16 +61,16 @@ if __name__ == "__main__":
 
     # MPC Control Loop
     for i in range(num_steps):
+        sim_iter = i
         args_dict['init_state'] = init_state
         # Run the optimizer
         st = time.time()
         result = minimize(objective, initial_guess, args=(args_dict),
-                          method='SLSQP', 
+                          method=solver_type, 
                           options={'disp': False})
         
-        if args.plot:
-            state_logs.append(init_state)
-            error_logs.append(result.fun)
+        state_logs.append(init_state)
+        error_logs.append(result.fun)
 
         # print("Time taken for optimization: ", time.time() - st)
         # Extract optimal control inputs
@@ -82,7 +78,6 @@ if __name__ == "__main__":
 
         # Apply the first control input to the system
         pendulum_system.inputs.force = optimal_controls[0]        
-        # pendulum_system.step_euler(dt)
         pendulum_system.step(dt)
         
         # Update the initial state
@@ -102,7 +97,8 @@ if __name__ == "__main__":
             # Display the canvas using cv2
             cv2.imshow('Inverted Pendulum', canvas)
         
-        print(f'Sim-iter {i + 1} / {num_steps}: x= {init_state.x:.2f} / {goal_x:.2f}, v={init_state.v:.2f}, theta={init_state.theta:.2f} / {goal_theta:.2f}')
+        print(f'Sim-iter {i + 1} / {num_steps}: x= {init_state.x:.2f} / {goal_x:.2f}, v={init_state.v:.2f}, \
+theta={init_state.theta:.2f} / {goal_theta:.2f}, input= {pendulum_system.inputs.force:.2f}')
 
         # Break the loop if 'q' key is pressed
         if cv2.waitKey(int(dt*1000)) & 0xFF == ord('q'):
@@ -116,6 +112,9 @@ if __name__ == "__main__":
         idx = np.arange(len(cart_poss))
 
         fig, axs = plt.subplots(3, 1, figsize=(10, 6))
+
+        title = f'{solver_type} Simulation Results'
+        fig.suptitle(title)
 
         # Plot cart position
         axs[0].plot(idx, cart_poss, label='Cart Position')
@@ -142,5 +141,62 @@ if __name__ == "__main__":
 
         # Show the plots
         plt.show()
+        # plt.savefig(title + '.png')
+
+    return (state_logs, error_logs, goal_x, goal_theta, sim_iter)
+
+def plot_results(results, title):
+    fig, axs = plt.subplots(3, 1, figsize=(10, 6))
+    fig.suptitle(title)
+
+    for solver_type in results:
+        state_logs, error_logs, goal_x, goal_theta, sim_iter = results[solver_type]
+        
+        cart_poss = [s.x for s in state_logs]
+        pendulum_angles = [s.theta for s in state_logs]
+        idx = np.arange(len(cart_poss))
+
+        # Plot cart position
+        axs[0].plot(idx, cart_poss, label=solver_type)
+        axs[0].set_xlabel('Time')
+        axs[0].set_ylabel('Cart Position')
+
+        # Plot pendulum angle
+        axs[1].plot(idx, pendulum_angles, label=solver_type)
+        axs[1].set_xlabel('Time')
+        axs[1].set_ylabel('Pendulum Angle')
+
+        # Objective
+        axs[2].plot(idx, error_logs, label=solver_type)
+        axs[2].set_xlabel('Time')
+        axs[2].set_ylabel('Error')
+
+    axs[0].axhline(y=goal_x, color='red', linestyle='--', label='Target', linewidth=2)
+    axs[1].axhline(y=goal_theta, color='red', linestyle='--', label='Target', linewidth=2)
+
+    axs[0].legend()
+    axs[1].legend()
+    axs[2].legend()
+
+    # Adjust layout
+    plt.tight_layout()
+
+    # Show the plots
+    # plt.show()
+    plt.savefig(title + '.png')
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-r', '--render', action='store_true')
+    parser.add_argument('-p', '--plot', action='store_true')
+    args = parser.parse_args()
+
+    optimization_methods = ['SLSQP', 'BFGS', 'L-BFGS-B']
+
+    results = {}
+    for solver in optimization_methods:
+        result = experiment(solver, args)
+        results[solver] = result
+    plot_results(results, 'Simulation Results')
 
         

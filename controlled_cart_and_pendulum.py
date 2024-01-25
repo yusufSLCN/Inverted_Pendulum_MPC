@@ -39,8 +39,10 @@ def objective(x, args_dict):
         # Penalize control effort
         # Error += np.abs(x[i]) ** 2
         # # # Penalize control changes
-        # if i > 0:
-        #     Error += f_rate_W * np.abs(x[i] - x[i - 1]) ** 2
+        # if i > 0 :
+        #     diff = (x[i] - x[i - 1]) ** 2 
+        #     if diff >= 10000:
+        #         Error += f_rate_W * (x[i] - x[i - 1]) ** 2
 
         init_state_1 = next_state
     return Error
