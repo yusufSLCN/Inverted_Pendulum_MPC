@@ -144,6 +144,10 @@ def main():
             init_state = pendulum_system.state
             args_dict['init_state'] = init_state
 
+            if np.abs(init_state.x - goal_x) / goal_x < 0.05 and np.abs(
+                    init_state.theta - goal_theta) / goal_theta < 0.05:
+                break
+
             # Update the initial guess
             next_init_guess = np.zeros_like(initial_guess)
             next_init_guess[:-1] = optimal_controls[1:]
@@ -168,10 +172,11 @@ def main():
     for method in optimization_methods:
         # convergence_info_by_method[method]['num_iterations'][:20] = array_of_methods[i]
         num_iterations = convergence_info_by_method[method]['num_iterations'][:30]
+        plt.figure(2)
         print(num_iterations)
         plt.plot(num_iterations, label=method)
 
-    plt.figure()
+    plt.figure(2)
     plt.xlabel('Time Step')
     plt.ylabel('Number of Iterations')
     plt.title('Number of Iterations Comparison of Optimization Methods')
