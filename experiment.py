@@ -16,11 +16,11 @@ def experiment(solver_type, args):
         
     # Set simulation parameters
     dt = 0.05
-    total_time = 10.0
+    total_time = 100.0
     num_steps = int(total_time / dt)
 
     #  MPC Parameters
-    P = 40  # Prediction horizon
+    P = 20  # Prediction horizon
 
     # Goal angle
     goal_theta = np.pi / 2.0
@@ -34,17 +34,17 @@ def experiment(solver_type, args):
     # Bounds
     bounds = []
     for _ in range(P):
-        bounds.append((-100, 100))
+        bounds.append((-50, 50))
 
     # Initialize the model and MPC optimizer
-    pendulum_system = InvertedPendulum(m=0.5, M=5.0, L=1)
+    pendulum_system = InvertedPendulum(m=0.1, M=5.0, L=0.3)
     # pendulum_system.uncertainty_gaussian_std = 0.02
     
     # Instantiate the model and visualization classes    
     viz = InvertedPendulumViz(x_start=-5, x_end=5, pendulum_len=1)
-    
+    init_angle = np.pi / 3
     # Initial state
-    pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=1)
+    pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=init_angle)
     init_state = pendulum_system.state
         
     # Initial guess for the control inputs
@@ -62,28 +62,49 @@ def experiment(solver_type, args):
     # MPC Control Loop
     for i in range(num_steps):
         sim_iter = i
-        args_dict['init_state'] = init_state
+
         # Run the optimizer
         st = time.time()
         result = minimize(objective, initial_guess, args=(args_dict),
                           method=solver_type, 
                           options={'disp': False})
-        
-        state_logs.append(init_state)
-        error_logs.append(result.fun)
-
         # print("Time taken for optimization: ", time.time() - st)
         # Extract optimal control inputs
         optimal_controls = result.x
 
         # Apply the first control input to the system
         pendulum_system.inputs.force = optimal_controls[0]        
-        pendulum_system.step(dt)
+        pendulum_system.step_rk4(dt)
         
         # Update the initial state
         init_state = pendulum_system.state
+        args_dict['init_state'] = init_state
 
-        if np.abs(init_state.x - goal_x)/goal_x < 0.05 and np.abs(init_state.theta - goal_theta)/ goal_theta < 0.05:
+        state_logs.append(init_state)
+        error_logs.append(result.fun)
+
+        # # Run the optimizer
+        # st = time.time()
+        # result = minimize(objective, initial_guess, args=(args_dict),
+        #                   method=solver_type, bounds=bounds,
+        #                   options={'disp': False})
+        
+        # state_logs.append(init_state)
+        # error_logs.append(result.fun)
+
+        # # print("Time taken for optimization: ", time.time() - st)
+        # # Extract optimal control inputs
+        # optimal_controls = result.x
+
+        # # Apply the first control input to the system
+        # pendulum_system.inputs.force = optimal_controls[0]        
+        # pendulum_system.step_rk4(dt)
+        
+        # # Update the initial state
+        # args_dict['init_state'] = init_state
+        # init_state = pendulum_system.state
+
+        if np.abs(init_state.x - goal_x)/goal_x < 0.001 and np.abs(init_state.theta - goal_theta)/ goal_theta < 0.001:
             break
         
         # Update the initial guess

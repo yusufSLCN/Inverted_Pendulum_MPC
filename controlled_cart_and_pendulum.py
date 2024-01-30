@@ -1,12 +1,11 @@
 import numpy as np
 import cv2
 import time
-
-from matplotlib import pyplot as plt
 from scipy.optimize import minimize
 from inverted_pendulum_model import InvertedPendulum
 from inverted_pendulum_viz import InvertedPendulumViz
 from interactive_plot import InteractivePlot
+
 
 # MPC Objective Function
 def objective(x, args_dict):
@@ -37,12 +36,10 @@ def objective(x, args_dict):
         # Penalize distance from goal position
         Error += ex_W * np.abs(next_state.x - goal_x) ** 2
         # Penalize control effort
-        # Error += np.abs(x[i]) ** 2
-        # # # Penalize control changes
-        # if i > 0 :
-        #     diff = (x[i] - x[i - 1]) ** 2 
-        #     if diff >= 10000:
-        #         Error += f_rate_W * (x[i] - x[i - 1]) ** 2
+        Error += 0.1 * (x[i] ** 2)
+        #  Penalize control changes
+        # if i > 0:
+        #     Error += f_rate_W * np.abs(x[i] - x[i - 1]) ** 2
 
         init_state_1 = next_state
     return Error
@@ -69,15 +66,15 @@ def main():
     
     # Set simulation parameters
     dt = 0.05
-    total_time = 10.0
+    total_time = 100.0
     num_steps = int(total_time / dt)
-
+    
     #  MPC Parameters
     P = 20  # Prediction horizon
 
     # Goal angle
     goal_theta = np.pi / 2.0
-    goal_x = 1.0
+    goal_x = -1.0
 
     # Cost function weights
     eth_W = 100.0
@@ -87,109 +84,74 @@ def main():
     # Bounds
     bounds = []
     for _ in range(P):
-        bounds.append((-100, 100))
+        bounds.append((-50, 50))
 
     # Initialize the model and MPC optimizer
-    pendulum_system = InvertedPendulum(m=0.5, M=5.0, L=1)
+    pendulum_system = InvertedPendulum(m=.1, M=5.0, L=0.3)
     # pendulum_system.uncertainty_gaussian_std = 0.02
-
-    # Instantiate the model and visualization classes
+    
+    # Instantiate the model and visualization classes    
     viz = InvertedPendulumViz(x_start=-5, x_end=5, pendulum_len=1)
 
+    # Create an instance of the InteractivePlot class
+    interactive_plot = InteractivePlot()
+    
     # Initial state
-    pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=1)
+    pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=1.57)
     init_state = pendulum_system.state
-
+        
     # Initial guess for the control inputs
     initial_guess = np.zeros(P)
-
+    
     # define args_dict
     args_dict = {'goal_theta': goal_theta,
-                 'goal_x': goal_x,
-                 'init_state': init_state,
-                 'P': P,
-                 'eth_W': eth_W, 'ex_W': ex_W, 'f_rate_W': f_rate_W,
+                 'goal_x': goal_x, 
+                 'init_state': init_state, 
+                 'P': P, 
+                 'eth_W': eth_W, 'ex_W': ex_W, 'f_rate_W': f_rate_W, 
                  'dt': dt,
                  'm': pendulum_system.m, 'M': pendulum_system.M, 'L': pendulum_system.L}
 
-    # List of optimization methods
-    optimization_methods = ['SLSQP', 'BFGS', 'L-BFGS-B']
-
-    # Dictionary to store convergence information foqqr each method
-    convergence_info_by_method = {method: {'values': [], 'num_iterations': []} for method in optimization_methods}
-
+    inputs_list = []
     # MPC Control Loop
-    # Run optimization for each method
-    for method in optimization_methods:
-        print(method)
-        pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=1)
+    for i in range(num_steps):
+
+        # Run the optimizer
+        st = time.time()
+        result = minimize(objective, initial_guess, args=(args_dict),
+                          method='SLSQP', bounds=bounds, 
+                          options={'disp': True})
+        # print("Time taken for optimization: ", time.time() - st)
+        # Extract optimal control inputs
+        optimal_controls = result.x
+
+        # Apply the first control input to the system
+        pendulum_system.inputs.force = optimal_controls[0]        
+        pendulum_system.step_rk4(dt)
+        
+        # Update the initial state
         init_state = pendulum_system.state
-        # Initial guess for the control inputs
-        initial_guess = np.zeros(P)
-        for i in range(num_steps):
-            args_dict['init_state'] = init_state
-            result = minimize(objective, initial_guess, args=(args_dict), method=method,
-                              options={'disp': False})
-            optimal_controls = result.x
-            # Store objective function value at this time step
-            convergence_info_by_method[method]['values'].append(result.fun)
-            print(result.nit)
-            convergence_info_by_method[method]['num_iterations'].append(result.nit)  # Store number of iterations
+        args_dict['init_state'] = init_state
+        
+        inputs_list.append(optimal_controls[0])
 
-            # Apply the first control input to the system (outside the inner loop)
-            pendulum_system.inputs.force = optimal_controls[0]
-            pendulum_system.step(dt)
+        
+        # at time = 50, apply disturbance
+        if i == 75:
+            pendulum_system.apply_disturbance(0.1)
+        
+        # Visualize the current state using the visualization class
+        canvas = viz.step([pendulum_system.state.x, pendulum_system.state.v, pendulum_system.state.theta, pendulum_system.state.theta_dot], t=i * dt)
 
-            # Update the initial state
-            init_state = pendulum_system.state
-            args_dict['init_state'] = init_state
-
-            if np.abs(init_state.x - goal_x) / goal_x < 0.05 and np.abs(
-                    init_state.theta - goal_theta) / goal_theta < 0.05:
-                break
-
-            # Update the initial guess
-            next_init_guess = np.zeros_like(initial_guess)
-            next_init_guess[:-1] = optimal_controls[1:]
-            initial_guess = next_init_guess
-
-            # at time = 50, apply disturbance
-            # if i == 50:
-            #     pendulum_system.apply_disturbance(0.1)
-
-            # Visualize the current state using the visualization class
-            canvas = viz.step([pendulum_system.state.x, pendulum_system.state.v, pendulum_system.state.theta,
-                               pendulum_system.state.theta_dot], t=i * dt)
-
-            # Display the canvas using cv2
-            cv2.imshow('Inverted Pendulum', canvas)
-
-            # # Break the loop if 'q' key is pressed
-            if cv2.waitKey(int(dt*1000)) & 0xFF == ord('q'):
-                break
-
-
-    for method in optimization_methods:
-        # convergence_info_by_method[method]['num_iterations'][:20] = array_of_methods[i]
-        num_iterations = convergence_info_by_method[method]['num_iterations'][:30]
-        plt.figure(2)
-        print(num_iterations)
-        plt.plot(num_iterations, label=method)
-
-    plt.figure(2)
-    plt.xlabel('Time Step')
-    plt.ylabel('Number of Iterations')
-    plt.title('Number of Iterations Comparison of Optimization Methods')
-    plt.legend()
-    plt.show()
-    input("Press Enter to continue...")
-
+        # Display the canvas using cv2
+        cv2.imshow('Inverted Pendulum', canvas)
+                
+        # Break the loop if 'q' key is pressed
+        if cv2.waitKey(int(dt*1000)) & 0xFF == ord('q'):
+            break
+        
+        
     cv2.destroyAllWindows()
-
-
-
-    # Plot number of iterations for each method
-
 
 
 
