@@ -100,7 +100,7 @@ if __name__=="__main__":
         current_state = pendulum_system.state
 
         # Perform a simulation step using the model
-        pendulum_system.step_euler(dt)
+        pendulum_system.step_rk4(dt=dt)
 
         # Visualize the current state using the visualization class
         canvas = viz.step([current_state.x, current_state.v, current_state.theta, current_state.theta_dot], t=i * dt)

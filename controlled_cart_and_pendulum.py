@@ -31,7 +31,7 @@ def objective(x, args_dict):
     vir_model.state = init_state_1
     for i in range(P):
         vir_model.inputs.force = x[i]
-        next_state = vir_model.step(dt)
+        next_state = vir_model.step_rk4(dt)
         # Penalize distance from goal angle
         Error += eth_W * np.abs(next_state.theta - goal_theta) ** 2
         # Penalize distance from goal position
@@ -73,7 +73,7 @@ def main():
     num_steps = int(total_time / dt)
 
     #  MPC Parameters
-    P = 40  # Prediction horizon
+    P = 20  # Prediction horizon
 
     # Goal angle
     goal_theta = np.pi / 2.0
