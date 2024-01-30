@@ -32,9 +32,9 @@ def experiment(solver_type, args):
     f_rate_W = 0.01
 
     # Bounds
-    bounds = []
-    for _ in range(P):
-        bounds.append((-50, 50))
+    # bounds = []
+    # for _ in range(P):
+    #     bounds.append((-50, 50))
 
     # Initialize the model and MPC optimizer
     pendulum_system = InvertedPendulum(m=0.1, M=5.0, L=0.3)
@@ -82,27 +82,6 @@ def experiment(solver_type, args):
 
         state_logs.append(init_state)
         error_logs.append(result.fun)
-
-        # # Run the optimizer
-        # st = time.time()
-        # result = minimize(objective, initial_guess, args=(args_dict),
-        #                   method=solver_type, bounds=bounds,
-        #                   options={'disp': False})
-        
-        # state_logs.append(init_state)
-        # error_logs.append(result.fun)
-
-        # # print("Time taken for optimization: ", time.time() - st)
-        # # Extract optimal control inputs
-        # optimal_controls = result.x
-
-        # # Apply the first control input to the system
-        # pendulum_system.inputs.force = optimal_controls[0]        
-        # pendulum_system.step_rk4(dt)
-        
-        # # Update the initial state
-        # args_dict['init_state'] = init_state
-        # init_state = pendulum_system.state
 
         if np.abs(init_state.x - goal_x)/goal_x < 0.001 and np.abs(init_state.theta - goal_theta)/ goal_theta < 0.001:
             break
@@ -212,7 +191,7 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--plot', action='store_true')
     args = parser.parse_args()
 
-    optimization_methods = ['SLSQP', 'BFGS', 'L-BFGS-B']
+    optimization_methods = ['SLSQP', 'BFGS', 'CG', 'Powell']
 
     results = {}
     for solver in optimization_methods:

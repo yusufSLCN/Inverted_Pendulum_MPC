@@ -32,9 +32,9 @@ def objective(x, args_dict):
         vir_model.inputs.force = x[i]
         next_state = vir_model.step_rk4(dt)
         # Penalize distance from goal angle
-        Error += eth_W * np.abs(next_state.theta - goal_theta) ** 2
+        Error += eth_W * (next_state.theta - goal_theta) ** 2
         # Penalize distance from goal position
-        Error += ex_W * np.abs(next_state.x - goal_x) ** 2
+        Error += ex_W * (next_state.x - goal_x) ** 2
         # Penalize control effort
         Error += 0.1 * (x[i] ** 2)
         #  Penalize control changes
