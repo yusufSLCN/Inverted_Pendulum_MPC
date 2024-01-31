@@ -13,6 +13,7 @@ def experiment(solver_type, args):
     sim_iter = 0
     state_logs = []
     error_logs = []
+    time_logs = []
         
     # Set simulation parameters
     dt = 0.05
@@ -49,6 +50,9 @@ def experiment(solver_type, args):
         
     # Initial guess for the control inputs
     initial_guess = np.zeros(P)
+
+    # Virtual model
+    vir_model = InvertedPendulum(m=pendulum_system.m, M=pendulum_system.M, L=pendulum_system.L)
     
     # define args_dict
     args_dict = {'goal_theta': goal_theta,
@@ -57,7 +61,8 @@ def experiment(solver_type, args):
                  'P': P, 
                  'eth_W': eth_W, 'ex_W': ex_W, 'f_rate_W': f_rate_W, 
                  'dt': dt,
-                 'm': pendulum_system.m, 'M': pendulum_system.M, 'L': pendulum_system.L}
+                 'm': pendulum_system.m, 'M': pendulum_system.M, 'L': pendulum_system.L,
+                 'vir_model':vir_model}
 
     # MPC Control Loop
     for i in range(num_steps):
@@ -70,6 +75,10 @@ def experiment(solver_type, args):
                           options={'disp': False})
         # print("Time taken for optimization: ", time.time() - st)
         # Extract optimal control inputs
+        solver_time = time.time() - st
+        print(solver_time)
+        time_logs.append(solver_time)
+
         optimal_controls = result.x
 
         # Apply the first control input to the system
@@ -143,14 +152,14 @@ theta={init_state.theta:.2f} / {goal_theta:.2f}, input= {pendulum_system.inputs.
         plt.show()
         # plt.savefig(title + '.png')
 
-    return (state_logs, error_logs, goal_x, goal_theta, sim_iter)
+    return (state_logs, error_logs, time_logs, goal_x, goal_theta, sim_iter)
 
 def plot_results(results, title):
-    fig, axs = plt.subplots(3, 1, figsize=(10, 6))
+    fig, axs = plt.subplots(4, 1, figsize=(10, 6))
     fig.suptitle(title)
 
     for solver_type in results:
-        state_logs, error_logs, goal_x, goal_theta, sim_iter = results[solver_type]
+        state_logs, error_logs, time_logs, goal_x, goal_theta, sim_iter = results[solver_type]
         
         cart_poss = [s.x for s in state_logs]
         pendulum_angles = [s.theta for s in state_logs]
@@ -171,12 +180,18 @@ def plot_results(results, title):
         axs[2].set_xlabel('Time')
         axs[2].set_ylabel('Error')
 
+        # Time
+        axs[3].plot(idx, time_logs, label=solver_type)
+        axs[3].set_xlabel('Time')
+        axs[3].set_ylabel('Optimizer Time (s)')
+
     axs[0].axhline(y=goal_x, color='red', linestyle='--', label='Target', linewidth=2)
     axs[1].axhline(y=goal_theta, color='red', linestyle='--', label='Target', linewidth=2)
 
     axs[0].legend()
     axs[1].legend()
     axs[2].legend()
+    axs[3].legend()
 
     # Adjust layout
     plt.tight_layout()

@@ -22,11 +22,11 @@ def objective(x, args_dict):
     m = args_dict['m']
     M = args_dict['M']
     L = args_dict['L']
+    vir_model = args_dict['vir_model']
     
     Error = 0
     init_state_1 = init_state
     # Initialize the virtual model
-    vir_model = InvertedPendulum(m=m, M=M, L=L)
     vir_model.state = init_state_1
     for i in range(P):
         vir_model.inputs.force = x[i]
@@ -103,6 +103,9 @@ def main():
     # Initial guess for the control inputs
     initial_guess = np.zeros(P)
     
+    # Virtual model
+    vir_model = InvertedPendulum(m=pendulum_system.m, M=pendulum_system.M, L=pendulum_system.L)
+
     # define args_dict
     args_dict = {'goal_theta': goal_theta,
                  'goal_x': goal_x, 
@@ -110,7 +113,8 @@ def main():
                  'P': P, 
                  'eth_W': eth_W, 'ex_W': ex_W, 'f_rate_W': f_rate_W, 
                  'dt': dt,
-                 'm': pendulum_system.m, 'M': pendulum_system.M, 'L': pendulum_system.L}
+                 'm': pendulum_system.m, 'M': pendulum_system.M, 'L': pendulum_system.L,
+                 'vir_model': vir_model}
 
     inputs_list = []
     # MPC Control Loop
@@ -124,7 +128,7 @@ def main():
         # print("Time taken for optimization: ", time.time() - st)
         # Extract optimal control inputs
         optimal_controls = result.x
-
+        print(time.time() - st)
         # Apply the first control input to the system
         pendulum_system.inputs.force = optimal_controls[0]        
         pendulum_system.step_rk4(dt)
