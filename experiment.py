@@ -158,6 +158,8 @@ def plot_results(results, title):
     fig, axs = plt.subplots(4, 1, figsize=(10, 6))
     fig.suptitle(title)
     times = []
+    f = open("results.txt", "w")
+    
     for solver_type in results:
         state_logs, error_logs, time_logs, goal_x, goal_theta, sim_iter = results[solver_type]
         
@@ -181,6 +183,11 @@ def plot_results(results, title):
         axs[2].set_ylabel('Error')
 
         times.append(time_logs)
+        time_msg = f'{solver_type} --- Mean: {np.mean(time_logs):.2f}, Max: {np.max(time_logs):.2f}, Min: {np.min(time_logs):.2f} \n'
+        f.write(time_msg)
+        print(time_msg)
+
+    f.close()
 
     # Time
     axs[3].boxplot(times, labels=results.keys(), showfliers = False, whis = (0, 100))
