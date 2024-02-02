@@ -3,10 +3,13 @@ import cv2
 import time
 import argparse
 import matplotlib.pyplot as plt
-from scipy.optimize import minimize
-from controlled_cart_and_pendulum import objective
-from inverted_pendulum_model import InvertedPendulum
+import casadi as ca
+import sys
+sys.path.append('..')
 from inverted_pendulum_viz import InvertedPendulumViz
+from inverted_pendulum_model import InvertedPendulum
+from controlled_cart_and_pendulum import objective
+
 
 
 def experiment(solver_type, args):
@@ -32,10 +35,15 @@ def experiment(solver_type, args):
     ex_W = 100.0
     f_rate_W = 0.01
 
-    # Bounds
-    # bounds = []
-    # for _ in range(P):
-    #     bounds.append((-50, 50))
+    # Init optimizer 
+    opti = ca.Opti()
+    U = opti.variable(P)
+    opti.solver(solver_type)
+
+    # Constraints
+    # for i in range(P):
+    #     opti.subject_to(U[i] <= 10)
+    #     opti.subject_to(U[i] >= -10)
 
     # Initialize the model and MPC optimizer
     pendulum_system = InvertedPendulum(m=0.1, M=5.0, L=0.3)
@@ -68,20 +76,24 @@ def experiment(solver_type, args):
     for i in range(num_steps):
         sim_iter = i
 
-        # Run the optimizer
         st = time.time()
-        result = minimize(objective, initial_guess, args=(args_dict),
-                          method=solver_type, 
-                          options={'disp': False})
-        # print("Time taken for optimization: ", time.time() - st)
-        # Extract optimal control inputs
+        # Run the optimizer
+        loss = objective(U, args_dict)
+        opti.minimize(loss)
+
+        # Solve the optimization problem
+        opti.set_initial(U, initial_guess)
+
+        st = time.time()
+
+        sol = opti.solve()
+
         solver_time = time.time() - st
         print(solver_time)
         time_logs.append(solver_time)
 
-        optimal_controls = result.x
-
         # Apply the first control input to the system
+        optimal_controls = sol.value(U)
         pendulum_system.inputs.force = optimal_controls[0]        
         pendulum_system.step_rk4(dt)
         
@@ -90,15 +102,14 @@ def experiment(solver_type, args):
         args_dict['init_state'] = init_state
 
         state_logs.append(init_state)
-        error_logs.append(result.fun)
+        error_logs.append(sol.value(opti.f))
 
         if np.abs(init_state.x - goal_x)/goal_x < 0.001 and np.abs(init_state.theta - goal_theta)/ goal_theta < 0.001:
             break
         
         # Update the initial guess
-        next_init_guess = np.zeros_like(initial_guess)
-        next_init_guess[:-1] = optimal_controls[1:]
-        initial_guess = next_init_guess
+        initial_guess[:-1] = optimal_controls[1:]
+        initial_guess[-1] = 0
 
         # Visualize the current state using the visualization class
         if args.render:
@@ -209,7 +220,7 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--plot', action='store_true')
     args = parser.parse_args()
 
-    optimization_methods = ['SLSQP', 'BFGS', 'CG', 'Powell']
+    optimization_methods = ['ipopt']
     # optimization_methods = ['SLSQP']
 
     results = {}
