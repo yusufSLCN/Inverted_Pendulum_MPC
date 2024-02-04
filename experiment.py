@@ -101,6 +101,7 @@ def experiment(solver_type, init_state, goal_state, args):
         state_logs.append(init_state)
         error_logs.append(result.fun)
 
+
         if np.abs(init_state.x - goal_x)/goal_x < 0.001 and np.abs(init_state.theta - goal_theta)/ goal_theta < 0.001:
             break
         

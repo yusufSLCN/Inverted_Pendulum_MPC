@@ -9,34 +9,25 @@ from inverted_pendulum_model import InvertedPendulum
 from inverted_pendulum_viz import InvertedPendulumViz
 
 
-def apply_wind_disturbance(self, wind_force):
-    # Apply wind disturbance to the system
-    # Modify the state based on the effects of the wind force
-
-    # Extract state variables
-    x1 = self.state.theta
-
-
-    # Constants
-    g = 9.81
-
-    # Update state based on the effects of the wind force
-    self.state.v += (-(self.M + self.m) * g * np.sin(x1) + wind_force) / (self.M + self.m)
-
-disturbances_events = {'Wind': [], 'Mass': []}
-def experiment2(solver_type, args):
+closed_loop_cost_value = 0.00
+closed_loop_cost_values = []
+def close_loop_cost(solver_type,init_state, goal_state, args):
     sim_iter = 0
     state_logs = []
     error_logs = []
 
     # Set simulation parameters
     dt = 0.05
-    total_time = 10
+    total_time = 10.0
 
     num_steps = int(total_time / dt)
 
     #  MPC Parameters
-    P = 40  # Prediction horizon
+    P = 20  # Prediction horizon
+
+    # Init state
+    init_x = init_state['x']
+    init_theta = init_state['theta']
 
     # Goal angle
     goal_theta = np.pi / 2.0
@@ -48,23 +39,28 @@ def experiment2(solver_type, args):
     f_rate_W = 0.01
 
     # Bounds
-    bounds = []
-    for _ in range(P):
-        bounds.append((-100, 100))
+    # bounds = []
+    # for _ in range(P):
+    #     bounds.append((-100, 100))
+
+    clip_value = 80
 
     # Initialize the model and MPC optimizer
-    pendulum_system = InvertedPendulum(m=0.5, M=5.0, L=1)
+    pendulum_system = InvertedPendulum(m=0.1, M=5.0, L=0.3)
     # pendulum_system.uncertainty_gaussian_std = 0.02
 
     # Instantiate the model and visualization classes
     viz = InvertedPendulumViz(x_start=-5, x_end=5, pendulum_len=1)
 
     # Initial state
-    pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=1)
+    pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=init_theta)
     init_state = pendulum_system.state
 
     # Initial guess for the control inputs
     initial_guess = np.zeros(P)
+
+    # Virtual model
+    vir_model = InvertedPendulum(m=pendulum_system.m, M=pendulum_system.M, L=pendulum_system.L)
 
     # define args_dict
     args_dict = {'goal_theta': goal_theta,
@@ -73,14 +69,16 @@ def experiment2(solver_type, args):
                  'P': P,
                  'eth_W': eth_W, 'ex_W': ex_W, 'f_rate_W': f_rate_W,
                  'dt': dt,
-                 'm': pendulum_system.m, 'M': pendulum_system.M, 'L': pendulum_system.L}
-    # MPC Control Loop
-    original_mass = pendulum_system.m
-    disturbance_type = None
+                 'm': pendulum_system.m, 'M': pendulum_system.M, 'L': pendulum_system.L,
+                 'vir_model': vir_model}
 
+    global closed_loop_cost_value
+    global closed_loop_cost_values
+    closed_loop_cost_value = 0.00
+
+    # MPC Control Loop
     for i in range(num_steps):
         sim_iter = i
-        args_dict['init_state'] = init_state
         # Run the optimizer
         st = time.time()
 
@@ -89,34 +87,27 @@ def experiment2(solver_type, args):
                           method=solver_type,
                           options={'disp': False})
 
-        if i == 10:
-            # Uncertainty modeling: random perturbation to mass
-            uncertainty_factor = np.random.uniform(-0.05, 0.05)  # Example uncertainty range
-            perturbed_mass = original_mass * (1 + uncertainty_factor)
-            pendulum_system.m = perturbed_mass
-            disturbance_type = "Mass"
-            disturbances_events['Mass'].append((disturbance_type, i))  # Tuple: (Type, Start time, Position on plot)
-
-        state_logs.append(init_state)
-        error_logs.append(result.fun)
-
         # print("Time taken for optimization: ", time.time() - st)
         # Extract optimal control inputs
         optimal_controls = result.x
 
         # Apply the first control input to the system
+        clipped_force = clip_value if optimal_controls[0] >= clip_value else optimal_controls[0]
+        clipped_force = -clip_value if optimal_controls[0] <= -clip_value else clipped_force
+        pendulum_system.inputs.force = clipped_force
+
+        closed_loop_cost_value += dt * result.fun
+        print(closed_loop_cost_value)
+
         pendulum_system.inputs.force = optimal_controls[0]
-
-        if i == 5:
-            wind_force = 0.2
-            pendulum_system.inputs.force += wind_force
-            disturbance_type = "Wind"
-            disturbances_events['Wind'].append((disturbance_type, i))  # Tuple: (Type, Start time, Position on plot)
-
-        pendulum_system.step(dt)
+        pendulum_system.step_rk4(dt)
 
         # Update the initial state
         init_state = pendulum_system.state
+        args_dict['init_state'] = init_state
+
+        state_logs.append(init_state)
+        error_logs.append(result.fun)
 
         if np.abs(init_state.x - goal_x) / goal_x < 0.05 and np.abs(init_state.theta - goal_theta) / goal_theta < 0.05:
             break
@@ -125,9 +116,6 @@ def experiment2(solver_type, args):
         next_init_guess = np.zeros_like(initial_guess)
         next_init_guess[:-1] = optimal_controls[1:]
         initial_guess = next_init_guess
-
-        # Restore the original mass for the next iteration
-        pendulum_system.m = original_mass
 
         # Visualize the current state using the visualization class
         if args.render:
@@ -142,7 +130,7 @@ def experiment2(solver_type, args):
         # Break the loop if 'q' key is pressed
         if cv2.waitKey(int(dt * 1000)) & 0xFF == ord('q'):
             break
-
+    closed_loop_cost_values.append(closed_loop_cost_value)
     cv2.destroyAllWindows()
 
     if args.plot:
@@ -175,6 +163,11 @@ def experiment2(solver_type, args):
         axs[2].set_ylabel('Error')
         axs[2].legend()
 
+        axs[3].plot(idx, closed_loop_cost_values, label='Cost')
+        axs[3].set_xlabel('Time')
+        axs[3].set_ylabel('Closed Loop Cost')
+        axs[3].legend()
+
         # Adjust layout
         plt.tight_layout()
 
@@ -185,10 +178,10 @@ def experiment2(solver_type, args):
     return (state_logs, error_logs, goal_x, goal_theta, sim_iter)
 
 def plot_results(results, title):
-    fig, axs = plt.subplots(3, 1, figsize=(10, 10))
+    fig, axs = plt.subplots(4, 1, figsize=(10, 10))
     fig.suptitle(title)
 
-    for solver_type in results:
+    for i, solver_type in enumerate(results):
         state_logs, error_logs, goal_x, goal_theta, sim_iter = results[solver_type]
 
         cart_poss = [s.x for s in state_logs]
@@ -197,30 +190,25 @@ def plot_results(results, title):
         # Plot cart position
         axs[0].plot(idx, cart_poss, label=solver_type)
         axs[0].set_xlabel('Time')
-        axs[0].set_ylabel('Cart Position after perturbed mass')
+        axs[0].set_ylabel('Cart Position')
 
         # Plot pendulum angle
         axs[1].plot(idx, pendulum_angles, label=solver_type)
         axs[1].set_xlabel('Time')
-        axs[1].set_ylabel('Pendulum Angle after perturbed mass')
+        axs[1].set_ylabel('Pendulum Angle')
 
         # Objective
         axs[2].plot(idx, error_logs, label=solver_type)
         axs[2].set_xlabel('Time')
-        axs[2].set_ylabel('Error after perturbed mass')
-        # Annotate disturbance events if provided
-        for event_type, event_list in disturbances_events.items():
-            for disturbance_event in event_list:
-                if disturbance_event[1] < len(cart_poss):
-                    if disturbance_event[0] == 'Wind':
-                        c = 'red'
-                        marker = 'o'
-                    else:
-                        c = 'blue'
-                        marker = 'x'   # Use 'o' for 'Wind' and 'x' for other type
-                    axs[0].plot(disturbance_event[1], cart_poss[disturbance_event[1]], c=c, marker=marker, label=disturbance_event[0])
-                    axs[1].plot(disturbance_event[1], pendulum_angles[disturbance_event[1]], c=c, marker=marker, label=disturbance_event[0])
-                    axs[2].plot(disturbance_event[1], error_logs[disturbance_event[1]], c=c, marker=marker, label=disturbance_event[0])
+        axs[2].set_ylabel('Error')
+
+        print(closed_loop_cost_values)
+        colors = {'SLSQP': 'blue', 'BFGS': 'orange', 'CG': 'green', 'Powell': 'red' }
+        y_values = np.arange(len(closed_loop_cost_values))
+        axs[3].bar(y_values[i], closed_loop_cost_values[i], label=solver_type, color=colors[solver_type])
+        axs[3].set_xlabel('Time')
+        axs[3].set_ylabel('Closed Loop Cost')
+        axs[3].legend()
 
     axs[0].axhline(y=goal_x, color='red', linestyle='--', label='Target', linewidth=2)
     axs[1].axhline(y=goal_theta, color='red', linestyle='--', label='Target', linewidth=2)
@@ -228,6 +216,7 @@ def plot_results(results, title):
     axs[0].legend()
     axs[1].legend()
     axs[2].legend()
+    axs[3].legend()
 
     # Adjust layout
     plt.tight_layout()
@@ -243,10 +232,11 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--plot', action='store_true')
     args = parser.parse_args()
 
-    optimization_methods = ['SLSQP', 'BFGS', 'L-BFGS-B']
-
+    optimization_methods = ['SLSQP', 'BFGS', 'CG', 'Powell']
+    init_state = {'theta': 3 * np.pi / 2, 'x': 0}
+    goal_state = {'theta': np.pi / 2, 'x': 1}
     results = {}
     for solver in optimization_methods:
-        result = experiment2(solver, args)
+        result = close_loop_cost(solver, init_state, goal_state, args)
         results[solver] = result
-    plot_results(results, 'Simulation Results after perturbed mass and wind only once')
+    plot_results(results, 'Simulation Results for closed loop cost')
