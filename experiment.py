@@ -50,7 +50,7 @@ def experiment(solver_type, init_state, goal_state, args):
     viz = InvertedPendulumViz(x_start=-5, x_end=5, pendulum_len=1)
 
     # Initial state
-    pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=init_theta)
+    pendulum_system.state = pendulum_system.State(cart_position=init_x, pendulum_angle=init_theta)
     init_state = pendulum_system.state
         
     # Initial guess for the control inputs
@@ -101,7 +101,7 @@ def experiment(solver_type, init_state, goal_state, args):
         state_logs.append(init_state)
         error_logs.append(result.fun)
 
-        if np.abs(init_state.x - goal_x)/goal_x < 0.001 and np.abs(init_state.theta - goal_theta)/ goal_theta < 0.001:
+        if np.abs(init_state.x - goal_x) < 0.01 and np.abs(init_state.theta - goal_theta)/ goal_theta < 0.01:
             break
         
         # Update the initial guess
@@ -227,7 +227,7 @@ if __name__ == "__main__":
 
     optimization_methods = ['SLSQP', 'BFGS', 'CG', 'Powell']
     # optimization_methods = ['SLSQP']
-    init_state = {'theta': 3 * np.pi / 2, 'x':0}
+    init_state = {'theta': np.pi/3, 'x':0}
     goal_state = {'theta': np.pi/2, 'x':1}
     results = {}
     for solver in optimization_methods:

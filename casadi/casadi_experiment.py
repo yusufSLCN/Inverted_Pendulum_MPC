@@ -12,7 +12,7 @@ from controlled_cart_and_pendulum import objective
 
 
 
-def experiment(solver_type, args):
+def experiment(solver_type, init_state, goal_state, args):
     sim_iter = 0
     state_logs = []
     error_logs = []
@@ -20,15 +20,19 @@ def experiment(solver_type, args):
         
     # Set simulation parameters
     dt = 0.05
-    total_time = 100.0
+    total_time = 10.0
     num_steps = int(total_time / dt)
 
     #  MPC Parameters
     P = 20  # Prediction horizon
 
-    # Goal angle
-    goal_theta = np.pi / 2.0
-    goal_x = 1.0
+    # Init state
+    init_x = init_state['x']
+    init_theta = init_state['theta']
+
+    # Goal state
+    goal_theta = goal_state['theta']
+    goal_x = goal_state['x']
 
     # Cost function weights
     eth_W = 100.0
@@ -42,8 +46,10 @@ def experiment(solver_type, args):
 
     # Constraints
     # for i in range(P):
-    #     opti.subject_to(U[i] <= 10)
-    #     opti.subject_to(U[i] >= -10)
+    #     opti.subject_to(U[i] <= 80)
+    #     opti.subject_to(U[i] >= -80)
+
+    clip_value = 80
 
     # Initialize the model and MPC optimizer
     pendulum_system = InvertedPendulum(m=0.1, M=5.0, L=0.3)
@@ -51,9 +57,9 @@ def experiment(solver_type, args):
     
     # Instantiate the model and visualization classes    
     viz = InvertedPendulumViz(x_start=-5, x_end=5, pendulum_len=1)
-    init_angle = np.pi / 3
+
     # Initial state
-    pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=init_angle)
+    pendulum_system.state = pendulum_system.State(cart_position=init_x, pendulum_angle=init_theta)
     init_state = pendulum_system.state
         
     # Initial guess for the control inputs
@@ -75,7 +81,6 @@ def experiment(solver_type, args):
     # MPC Control Loop
     for i in range(num_steps):
         sim_iter = i
-
         st = time.time()
         # Run the optimizer
         loss = objective(U, args_dict)
@@ -94,7 +99,14 @@ def experiment(solver_type, args):
 
         # Apply the first control input to the system
         optimal_controls = sol.value(U)
-        pendulum_system.inputs.force = optimal_controls[0]        
+        pendulum_system.inputs.force = optimal_controls[0]    
+
+        # Apply the first control input to the system
+        clipped_force = clip_value if optimal_controls[0] >= clip_value else optimal_controls[0]
+        clipped_force = -clip_value if optimal_controls[0] <= -clip_value else clipped_force
+        pendulum_system.inputs.force = clipped_force
+
+        # pendulum_system.inputs.force = optimal_controls[0]        
         pendulum_system.step_rk4(dt)
         
         # Update the initial state
@@ -104,7 +116,7 @@ def experiment(solver_type, args):
         state_logs.append(init_state)
         error_logs.append(sol.value(opti.f))
 
-        if np.abs(init_state.x - goal_x)/goal_x < 0.001 and np.abs(init_state.theta - goal_theta)/ goal_theta < 0.001:
+        if np.abs(init_state.x - goal_x) < 0.01 and np.abs(init_state.theta - goal_theta) < 0.01:
             break
         
         # Update the initial guess
@@ -169,8 +181,8 @@ def plot_results(results, title):
     fig, axs = plt.subplots(4, 1, figsize=(10, 6))
     fig.suptitle(title)
     times = []
-    f = open("results.txt", "w")
-
+    f = open(f"results_{title}.txt", "w")
+    
     for solver_type in results:
         state_logs, error_logs, time_logs, goal_x, goal_theta, sim_iter = results[solver_type]
         
@@ -229,11 +241,12 @@ if __name__ == "__main__":
 
     optimization_methods = ['ipopt']
     # optimization_methods = ['SLSQP']
-
+    init_state = {'theta': np.pi, 'x':0}
+    goal_state = {'theta': np.pi/2, 'x':1}
     results = {}
     for solver in optimization_methods:
-        result = experiment(solver, args)
+        result = experiment(solver, init_state, goal_state, args)
         results[solver] = result
-    plot_results(results, 'Simulation Results boxplot')
-
-        
+    
+    init_theta = init_state['theta']
+    plot_results(results, f'Simulation Results Angle {init_theta:.2f}')
