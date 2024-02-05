@@ -17,7 +17,7 @@ def experiment(solver_type, init_state, goal_state, args):
         
     # Set simulation parameters
     dt = 0.05
-    total_time = 10.0
+    total_time = 8.0
     num_steps = int(total_time / dt)
 
     #  MPC Parameters
@@ -43,7 +43,7 @@ def experiment(solver_type, init_state, goal_state, args):
     clip_value = 80
 
     # Initialize the model and MPC optimizer
-    pendulum_system = InvertedPendulum(m=0.1, M=5.0, L=0.3)
+    pendulum_system = InvertedPendulum(m=0.1, M=5.0, L=0.3, uncertainty_gaussian_std=0.05)
     # pendulum_system.uncertainty_gaussian_std = 0.02
     
     # Instantiate the model and visualization classes    
@@ -101,8 +101,8 @@ def experiment(solver_type, init_state, goal_state, args):
         state_logs.append(init_state)
         error_logs.append(result.fun)
 
-        if np.abs(init_state.x - goal_x) < 0.01 and np.abs(init_state.theta - goal_theta)/ goal_theta < 0.01:
-            break
+        # if np.abs(init_state.x - goal_x) < 0.01 and np.abs(init_state.theta - goal_theta)/ goal_theta < 0.01:
+        #     break
         
         # Update the initial guess
         next_init_guess = np.zeros_like(initial_guess)
@@ -224,17 +224,19 @@ if __name__ == "__main__":
     parser.add_argument('-r', '--render', action='store_true')
     parser.add_argument('-p', '--plot', action='store_true')
     args = parser.parse_args()
-
+    exp_angles = [np.pi/3, np.pi, 3*np.pi/2]
     optimization_methods = ['SLSQP', 'BFGS', 'CG', 'Powell']
-    # optimization_methods = ['SLSQP']
-    init_state = {'theta': np.pi/3, 'x':0}
-    goal_state = {'theta': np.pi/2, 'x':1}
-    results = {}
-    for solver in optimization_methods:
-        result = experiment(solver, init_state, goal_state, args)
-        results[solver] = result
-    
-    init_theta = init_state['theta']
-    plot_results(results, f'Simulation Results Angle {init_theta:.2f}')
+    for start_theta in exp_angles:
+        # optimization_methods = ['SLSQP']
+        init_state = {'theta': start_theta, 'x':0}
+        goal_state = {'theta': np.pi/2, 'x':1}
+        results = {}
+        for solver in optimization_methods:
+            result = experiment(solver, init_state, goal_state, args)
+            results[solver] = result
+        
+        init_theta = init_state['theta']
+        # plot_results(results, f'Simulation Results wo Initial Guess Update Angle {init_theta:.2f}')
+        plot_results(results, f'Simulation Results w Uncertanty, Angle {init_theta:.2f}')
 
         

@@ -1,12 +1,19 @@
 import numpy as np
+from noise_gen import generate_and_save_random_values, read_random_values
 
 class InvertedPendulum:
-    def __init__(self, L=1.0, m=0.1, M=1.0, g=9.8):
+    def __init__(self, L=1.0, m=0.1, M=1.0, g=9.8, uncertainty_gaussian_std = 0):
         self.L = L  # Length of pendulum
         self.m = m  # Mass of the bob
         self.M = M  # Mass of the cart
         self.g = g  # Gravitational acceleration
-        self.uncertainty_gaussian_std = 0.0
+        self.uncertainty_gaussian_std = uncertainty_gaussian_std
+        self.noise_file = f'noise_{uncertainty_gaussian_std}.txt'
+        if uncertainty_gaussian_std > 0:
+            generate_and_save_random_values(2000, self.noise_file, 0, uncertainty_gaussian_std)
+            self.noise = read_random_values(self.noise_file)
+            
+        self.sim_iter = 0
 
         self.state = self.State()
         self.inputs = self.Inputs()
@@ -23,6 +30,7 @@ class InvertedPendulum:
             self.force = force
 
     def step_rk4(self, dt=0.01):
+        
         final_state = self.State()
 
         # Unpack state variables
@@ -73,11 +81,15 @@ class InvertedPendulum:
         # add noise
         if self.uncertainty_gaussian_std > 0:
             # to simulate uncertainty in the model and sensors
-            final_state.theta += np.random.normal(0, self.uncertainty_gaussian_std)
+            if self.sim_iter >= len(self.noise):
+                self.sim_iter = 0
+
+            final_state.theta += self.noise[self.sim_iter]
             
         # Update the internal state
         self.state = final_state
         
+        self.sim_iter += 1
         return final_state
     
     

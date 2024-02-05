@@ -1,0 +1,4 @@
+SLSQP --- Mean: 0.20, Max: 0.39, Min: 0.10 
+BFGS --- Mean: 0.55, Max: 2.25, Min: 0.16 
+CG --- Mean: 1.38, Max: 3.89, Min: 0.46 
+Powell --- Mean: 2.75, Max: 5.84, Min: 0.14 
