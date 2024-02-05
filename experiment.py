@@ -228,7 +228,7 @@ if __name__ == "__main__":
 
     optimization_methods = ['SLSQP', 'BFGS', 'CG', 'Powell']
     # optimization_methods = ['SLSQP']
-    init_state = {'theta': 3 * np.pi / 2, 'x':0}
+    init_state = {'theta':  np.pi, 'x':0}
     goal_state = {'theta': np.pi/2, 'x':1}
     results = {}
     for solver in optimization_methods:
