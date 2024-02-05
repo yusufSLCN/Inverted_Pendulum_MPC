@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+import pickle
 import time
 import argparse
 import matplotlib.pyplot as plt
@@ -160,8 +161,12 @@ theta={init_state.theta:.2f} / {goal_theta:.2f}, input= {pendulum_system.inputs.
         # Show the plots
         plt.show()
         # plt.savefig(title + '.png')
+    results = (state_logs, error_logs, time_logs, goal_x, goal_theta, sim_iter)
+    exp_name = 'results_{init_theta}.pickle'
+    with open(exp_name, 'wb') as f:
+        pickle.dump(results, f)
 
-    return (state_logs, error_logs, time_logs, goal_x, goal_theta, sim_iter)
+    return results
 
 def plot_results(results, title):
     fig, axs = plt.subplots(4, 1, figsize=(10, 6))
