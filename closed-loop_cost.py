@@ -240,7 +240,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     optimization_methods = ['SLSQP', 'BFGS', 'CG', 'Powell']
-    init_state = {'theta': 2*np.pi/3, 'x': 0}
+    init_state = {'theta': np.pi, 'x': 0}
     goal_state = {'theta': np.pi / 2, 'x': 1}
     results = {}
     for solver in optimization_methods:
