@@ -180,6 +180,7 @@ def close_loop_cost(solver_type,init_state, goal_state, args):
 def plot_results(results, title):
     fig, axs = plt.subplots(4, 1, figsize=(10, 10))
     fig.suptitle(title)
+    f = open(f"Closed loop cost_{title}.txt", "w")
 
     for i, solver_type in enumerate(results):
         state_logs, error_logs, goal_x, goal_theta, sim_iter = results[solver_type]
@@ -210,6 +211,12 @@ def plot_results(results, title):
         axs[3].set_ylabel('Closed Loop Cost')
         axs[3].legend()
 
+        time_msg = f'{solver_type} --- Closed loop cost: {np.max(closed_loop_cost_values[i]):.2f} \n'
+        f.write(time_msg)
+        print(time_msg)
+
+    f.close()
+
     axs[0].axhline(y=goal_x, color='red', linestyle='--', label='Target', linewidth=2)
     axs[1].axhline(y=goal_theta, color='red', linestyle='--', label='Target', linewidth=2)
 
@@ -233,10 +240,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     optimization_methods = ['SLSQP', 'BFGS', 'CG', 'Powell']
-    init_state = {'theta': 3 * np.pi / 2, 'x': 0}
+    init_state = {'theta': np.pi, 'x': 0}
     goal_state = {'theta': np.pi / 2, 'x': 1}
     results = {}
     for solver in optimization_methods:
         result = close_loop_cost(solver, init_state, goal_state, args)
         results[solver] = result
-    plot_results(results, 'Simulation Results for closed loop cost')
+
+    init_theta = init_state['theta']
+    plot_results(results, f'Simulation Results for closed loop cost Angle {init_theta:.2f}')
