@@ -11,9 +11,11 @@ class InvertedPendulum:
         self.uncertainty_gaussian_std = uncertainty_gaussian_std
         self.noise_file = f'noise_{uncertainty_gaussian_std}.txt'
         if uncertainty_gaussian_std > 0:
-            if not os.path.isfile(self.noise_file):
-                generate_and_save_random_values(2000, self.noise_file, 0, uncertainty_gaussian_std)
-            self.noise = read_random_values(self.noise_file)
+            # if not os.path.isfile(self.noise_file):
+            #     generate_and_save_random_values(2000, self.noise_file, 0, uncertainty_gaussian_std)
+            # self.noise = read_random_values(self.noise_file)
+            # np.random.seed(0)
+            self.noise = np.random.normal(0, uncertainty_gaussian_std, 2000)
             
         self.sim_iter = 0
 
