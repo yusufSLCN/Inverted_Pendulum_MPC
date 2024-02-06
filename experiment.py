@@ -125,54 +125,17 @@ theta={init_state.theta:.2f} / {goal_theta:.2f}, input= {pendulum_system.inputs.
     
     cv2.destroyAllWindows()
     
-    if args.plot:
-        cart_poss = [s.x for s in state_logs]
-        pendulum_angles = [s.theta for s in state_logs]
-        idx = np.arange(len(cart_poss))
-
-        fig, axs = plt.subplots(3, 1, figsize=(10, 6))
-
-        title = f'{solver_type} Simulation Results'
-        fig.suptitle(title)
-
-        # Plot cart position
-        axs[0].plot(idx, cart_poss, label='Cart Position')
-        axs[0].axhline(y=goal_x, color='red', linestyle='--', label='Target', linewidth=2)
-        axs[0].set_xlabel('Time')
-        axs[0].set_ylabel('Position')
-        axs[0].legend()
-
-        # Plot pendulum angle
-        axs[1].plot(idx, pendulum_angles, label='Pendulum Angle')
-        axs[1].axhline(y=goal_theta, color='red', linestyle='--', label='Target', linewidth=2)
-        axs[1].set_xlabel('Time')
-        axs[1].set_ylabel('Angle')
-        axs[1].legend()
-
-        # Objective
-        axs[2].plot(idx, error_logs, label='Error')
-        axs[2].set_xlabel('Time')
-        axs[2].set_ylabel('Error')
-        axs[2].legend()
-
-        # Adjust layout
-        plt.tight_layout()
-
-        # Show the plots
-        plt.show()
-        # plt.savefig(title + '.png')
     results = (state_logs, error_logs, time_logs, goal_x, goal_theta, sim_iter)
-    exp_name = 'results_{init_theta}.pickle'
-    with open(exp_name, 'wb') as f:
-        pickle.dump(results, f)
 
     return results
 
 def plot_results(results, title):
-    fig, axs = plt.subplots(4, 1, figsize=(10, 6))
-    fig.suptitle(title)
+    fig, axs = plt.subplots(3, 1, figsize=(10, 6))
+
+    pos_title =  'Position and Angle - ' + title
+    fig.suptitle(pos_title)
     times = []
-    f = open(f"results_{title}.txt", "w")
+    f = open(f"./results/results_{title}.txt", "w")
     
     for solver_type in results:
         state_logs, error_logs, time_logs, goal_x, goal_theta, sim_iter = results[solver_type]
@@ -183,17 +146,17 @@ def plot_results(results, title):
 
         # Plot cart position
         axs[0].plot(idx, cart_poss, label=solver_type)
-        axs[0].set_xlabel('Time')
+        axs[0].set_xlabel('Iteration')
         axs[0].set_ylabel('Cart Position')
 
         # Plot pendulum angle
         axs[1].plot(idx, pendulum_angles, label=solver_type)
-        axs[1].set_xlabel('Time')
+        axs[1].set_xlabel('Iteration')
         axs[1].set_ylabel('Pendulum Angle')
 
         # Objective
         axs[2].plot(idx, error_logs, label=solver_type)
-        axs[2].set_xlabel('Time')
+        axs[2].set_xlabel('Iteration')
         axs[2].set_ylabel('Error')
 
         times.append(time_logs)
@@ -203,26 +166,30 @@ def plot_results(results, title):
 
     f.close()
 
-    # Time
-    axs[3].boxplot(times, labels=results.keys(), showfliers = False, whis = (0, 100))
-    axs[3].set_xlabel('Time')
-    axs[3].set_ylabel('Optimizer Time (s)')
-    plt.yscale('log')
-
     axs[0].axhline(y=goal_x, color='red', linestyle='--', label='Target', linewidth=2)
     axs[1].axhline(y=goal_theta, color='red', linestyle='--', label='Target', linewidth=2)
 
     axs[0].legend()
     axs[1].legend()
     axs[2].legend()
-    axs[3].legend()
+    plt.tight_layout()
+    plt.savefig('./plots/' + pos_title + '.png')
 
-    # Adjust layout
+    # Time
+    fig = plt.figure()
+    time_title = 'Time Measurements - ' + title
+    plt.suptitle(time_title)
+    plt.boxplot(times, labels=results.keys(), showfliers = False, whis = (0, 100), showmeans= True,
+                    meanline= True, notch = False, showbox = False)
+    # axs[3].violinplot(times, showmeans=True)
+    plt.ylabel('Optimizer Time (s)')
+    plt.yscale('log')
+    plt.legend()
     plt.tight_layout()
 
     # Show the plots
     # plt.show()
-    plt.savefig(title + '.png')
+    plt.savefig('./plots/' + time_title + '.png')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -230,9 +197,10 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--plot', action='store_true')
     args = parser.parse_args()
     exp_angles = [np.pi/3, np.pi, 3*np.pi/2]
+    # exp_angles = [np.pi/3]
     optimization_methods = ['SLSQP', 'BFGS', 'CG', 'Powell']
+    # optimization_methods = ['SLSQP']
     for start_theta in exp_angles:
-        # optimization_methods = ['SLSQP']
         init_state = {'theta': start_theta, 'x':0}
         goal_state = {'theta': np.pi/2, 'x':1}
         results = {}
@@ -242,6 +210,9 @@ if __name__ == "__main__":
         
         init_theta = init_state['theta']
         # plot_results(results, f'Simulation Results wo Initial Guess Update Angle {init_theta:.2f}')
-        plot_results(results, f'Simulation Results w Uncertanty, Angle {init_theta:.2f}')
+        exp_name = f'./results/results_{init_theta:.2f}.pickle'
+        with open(exp_name, 'wb') as f:
+            pickle.dump(results, f)
+        plot_results(results, f'Simulation Results, Angle {init_theta:.2f}')
 
         
