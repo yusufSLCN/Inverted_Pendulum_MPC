@@ -12,7 +12,7 @@ from controlled_cart_and_pendulum import objective
 
 
 
-def experiment(solver_type, init_state, goal_state, args):
+def casadi_experiment(solver_type, init_state, goal_state, args):
     sim_iter = 0
     state_logs = []
     error_logs = []
@@ -20,7 +20,7 @@ def experiment(solver_type, init_state, goal_state, args):
         
     # Set simulation parameters
     dt = 0.05
-    total_time = 10.0
+    total_time = 8.0
     num_steps = int(total_time / dt)
 
     #  MPC Parameters
@@ -52,7 +52,8 @@ def experiment(solver_type, init_state, goal_state, args):
     clip_value = 80
 
     # Initialize the model and MPC optimizer
-    pendulum_system = InvertedPendulum(m=0.1, M=5.0, L=0.3)
+    pendulum_system = InvertedPendulum(m=0.1, M=5.0, L=0.3, uncertainty_gaussian_std=0.02)
+
     # pendulum_system.uncertainty_gaussian_std = 0.02
     
     # Instantiate the model and visualization classes    
@@ -115,9 +116,6 @@ def experiment(solver_type, init_state, goal_state, args):
 
         state_logs.append(init_state)
         error_logs.append(sol.value(opti.f))
-
-        if np.abs(init_state.x - goal_x) < 0.01 and np.abs(init_state.theta - goal_theta) < 0.01:
-            break
         
         # Update the initial guess
         initial_guess[:-1] = optimal_controls[1:]
@@ -137,43 +135,6 @@ theta={init_state.theta:.2f} / {goal_theta:.2f}, input= {pendulum_system.inputs.
             break
     
     cv2.destroyAllWindows()
-    
-    if args.plot:
-        cart_poss = [s.x for s in state_logs]
-        pendulum_angles = [s.theta for s in state_logs]
-        idx = np.arange(len(cart_poss))
-
-        fig, axs = plt.subplots(3, 1, figsize=(10, 6))
-
-        title = f'{solver_type} Simulation Results'
-        fig.suptitle(title)
-
-        # Plot cart position
-        axs[0].plot(idx, cart_poss, label='Cart Position')
-        axs[0].axhline(y=goal_x, color='red', linestyle='--', label='Target', linewidth=2)
-        axs[0].set_xlabel('Time')
-        axs[0].set_ylabel('Position')
-        axs[0].legend()
-
-        # Plot pendulum angle
-        axs[1].plot(idx, pendulum_angles, label='Pendulum Angle')
-        axs[1].axhline(y=goal_theta, color='red', linestyle='--', label='Target', linewidth=2)
-        axs[1].set_xlabel('Time')
-        axs[1].set_ylabel('Angle')
-        axs[1].legend()
-
-        # Objective
-        axs[2].plot(idx, error_logs, label='Error')
-        axs[2].set_xlabel('Time')
-        axs[2].set_ylabel('Error')
-        axs[2].legend()
-
-        # Adjust layout
-        plt.tight_layout()
-
-        # Show the plots
-        plt.show()
-        # plt.savefig(title + '.png')
 
     return (state_logs, error_logs, time_logs, goal_x, goal_theta, sim_iter)
 
@@ -245,7 +206,7 @@ if __name__ == "__main__":
     goal_state = {'theta': np.pi/2, 'x':1}
     results = {}
     for solver in optimization_methods:
-        result = experiment(solver, init_state, goal_state, args)
+        result = casadi_experiment(solver, init_state, goal_state, args)
         results[solver] = result
     
     init_theta = init_state['theta']
