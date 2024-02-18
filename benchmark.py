@@ -5,7 +5,7 @@ from scipy.optimize import minimize
 from inverted_pendulum_model import InvertedPendulum
 from inverted_pendulum_viz import InvertedPendulumViz
 from interactive_plot import InteractivePlot
-
+from concurrent.futures import ProcessPoolExecutor
 
 # MPC Objective Function
 def objective(x, args_dict):
@@ -241,9 +241,12 @@ def log_values(log_file_path, loss_values):
 def closed_loop_cost(loss_values, dt):
     return np.sum(loss_values) * dt
 
+def closed_loop_input(inputs_list, dt):
+    return np.sum(np.abs(inputs_list)) * dt
+        
 if __name__=="__main__":
     # Test different solvers
-    solvers = ['SLSQP', 'Powell']
+    solvers = ['SLSQP', 'Powell', 'CG']
     
     for solver in solvers:
         
@@ -289,8 +292,10 @@ if __name__=="__main__":
             
             # Calculate closed loop cost and write to file
             closed_loop_cost_val = closed_loop_cost(loss_values, dt)
+            closed_loop_input_val = closed_loop_input(inputs_list, dt)
             with open(f"closed_loop_cost_{solver.lower()}_{prediction_horizon}.txt", 'w') as f:
-                f.write(f"{closed_loop_cost_val}\n")
+                f.write(f"closed_loop_cost: {closed_loop_cost_val}\n")
+                f.write(f"closed_loop_input: {closed_loop_input_val}\n")
                 # min and mean and max of optimization time
                 f.write(f"Optimization time: {np.mean(opti_time)}\n")
                 f.write(f"Optimization time std: {np.std(opti_time)}\n")
@@ -304,4 +309,6 @@ if __name__=="__main__":
                 f.write(f"Mean input: {np.mean(inputs_list)}\n")
                 f.write(f"Max input: {np.max(inputs_list)}\n")
                 
+
+
             
