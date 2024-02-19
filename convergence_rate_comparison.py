@@ -20,7 +20,7 @@ def convergence_rate(solver_type,init_state, goal_state, args):
 
     # Set simulation parameters
     dt = 0.05
-    total_time = 10.0
+    total_time = 8.0
 
     num_steps = int(total_time / dt)
 
@@ -31,9 +31,9 @@ def convergence_rate(solver_type,init_state, goal_state, args):
     init_x = init_state['x']
     init_theta = init_state['theta']
 
-    # Goal angle
-    goal_theta = np.pi / 2.0
-    goal_x = 1.0
+    # Goal state
+    goal_theta = goal_state['theta']
+    goal_x = goal_state['x']
 
     # Cost function weights
     eth_W = 100.0
@@ -55,7 +55,7 @@ def convergence_rate(solver_type,init_state, goal_state, args):
     viz = InvertedPendulumViz(x_start=-5, x_end=5, pendulum_len=1)
 
     # Initial state
-    pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=init_theta)
+    pendulum_system.state = pendulum_system.State(cart_position=init_x, pendulum_angle=init_theta)
     init_state = pendulum_system.state
 
     # Initial guess for the control inputs
@@ -95,7 +95,7 @@ def convergence_rate(solver_type,init_state, goal_state, args):
         clipped_force = -clip_value if optimal_controls[0] <= -clip_value else clipped_force
         pendulum_system.inputs.force = clipped_force
 
-        pendulum_system.inputs.force = optimal_controls[0]
+        # pendulum_system.inputs.force = optimal_controls[0]
         pendulum_system.step_rk4(dt)
 
         # Update the initial state
@@ -105,8 +105,6 @@ def convergence_rate(solver_type,init_state, goal_state, args):
         state_logs.append(init_state)
         error_logs.append(result.fun)
 
-        if np.abs(init_state.x - goal_x) / goal_x < 0.05 and np.abs(init_state.theta - goal_theta) / goal_theta < 0.05:
-            break
 
         # Update the initial guess
         next_init_guess = np.zeros_like(initial_guess)

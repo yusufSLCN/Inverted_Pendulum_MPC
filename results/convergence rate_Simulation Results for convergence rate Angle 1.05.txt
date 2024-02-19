@@ -1,5 +1,5 @@
 ipopt --- Mean: 4, Max: 17.00, Min: 2.00 
-SLSQP --- Mean: 10, Max: 24.00, Min: 6.00 
-BFGS --- Mean: 22, Max: 72.00, Min: 8.00 
-CG --- Mean: 26, Max: 46.00, Min: 11.00 
-Powell --- Mean: 7, Max: 43.00, Min: 1.00 
+SLSQP --- Mean: 9, Max: 24.00, Min: 4.00 
+BFGS --- Mean: 19, Max: 72.00, Min: 8.00 
+CG --- Mean: 24, Max: 56.00, Min: 9.00 
+Powell --- Mean: 15, Max: 60.00, Min: 2.00 

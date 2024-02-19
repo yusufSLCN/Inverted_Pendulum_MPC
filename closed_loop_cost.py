@@ -21,7 +21,7 @@ def close_loop_cost(solver_type,init_state, goal_state, args):
 
     # Set simulation parameters
     dt = 0.05
-    total_time = 10.0
+    total_time = 8.0
 
     num_steps = int(total_time / dt)
 
@@ -32,9 +32,9 @@ def close_loop_cost(solver_type,init_state, goal_state, args):
     init_x = init_state['x']
     init_theta = init_state['theta']
 
-    # Goal angle
-    goal_theta = np.pi / 2.0
-    goal_x = 1.0
+    # Goal state
+    goal_theta = goal_state['theta']
+    goal_x = goal_state['x']
 
     # Cost function weights
     eth_W = 100.0
@@ -56,7 +56,7 @@ def close_loop_cost(solver_type,init_state, goal_state, args):
     viz = InvertedPendulumViz(x_start=-5, x_end=5, pendulum_len=1)
 
     # Initial state
-    pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=init_theta)
+    pendulum_system.state = pendulum_system.State(cart_position=init_x, pendulum_angle=init_theta)
     init_state = pendulum_system.state
 
     # Initial guess for the control inputs
@@ -90,7 +90,10 @@ def close_loop_cost(solver_type,init_state, goal_state, args):
         result = minimize(objective, initial_guess, args=(args_dict),
                           method=solver_type,
                           options={'disp': False})
+        closed_loop_cost_values.append(closed_loop_cost_value)
+        closed_loop_cost_value += dt * result.fun
 
+        print(closed_loop_cost_value)
         # print("Time taken for optimization: ", time.time() - st)
         # Extract optimal control inputs
         optimal_controls = result.x
@@ -98,13 +101,10 @@ def close_loop_cost(solver_type,init_state, goal_state, args):
         # Apply the first control input to the system
         clipped_force = clip_value if optimal_controls[0] >= clip_value else optimal_controls[0]
         clipped_force = -clip_value if optimal_controls[0] <= -clip_value else clipped_force
+
         pendulum_system.inputs.force = clipped_force
-        closed_loop_cost_values.append(closed_loop_cost_value)
-        closed_loop_cost_value += dt * result.fun
 
-        print(closed_loop_cost_value)
-
-        pendulum_system.inputs.force = optimal_controls[0]
+        # pendulum_system.inputs.force = optimal_controls[0]
         pendulum_system.step_rk4(dt)
 
         # Update the initial state
@@ -113,9 +113,6 @@ def close_loop_cost(solver_type,init_state, goal_state, args):
 
         state_logs.append(init_state)
         error_logs.append(result.fun)
-
-        if np.abs(init_state.x - goal_x) / goal_x < 0.05 and np.abs(init_state.theta - goal_theta) / goal_theta < 0.05:
-            break
 
         # Update the initial guess
         next_init_guess = np.zeros_like(initial_guess)
@@ -188,7 +185,7 @@ def plot_results(results, title):
     f = open(f"Closed loop cost_progress_{title}.txt", "w")
 
     for i, solver_type in enumerate(results):
-        state_logs, error_logs, closed_loop_cost_values_prog, goal_x, goal_theta, sim_iter = results[solver_type]
+        state_logs, error_logs, closed_loop_cost_value_prog, goal_x, goal_theta, sim_iter = results[solver_type]
 
         cart_poss = [s.x for s in state_logs]
         pendulum_angles = [s.theta for s in state_logs]
@@ -211,12 +208,12 @@ def plot_results(results, title):
 
         colors = {'ipopt': 'magenta', 'SLSQP': 'blue', 'BFGS': 'orange', 'CG': 'green', 'Powell': 'red' }
         y_values = np.arange(len(colors))
-        ax.plot(idx, closed_loop_cost_values_prog, label=solver_type, color=colors[solver_type])
+        ax.plot(closed_loop_cost_value_prog, label=solver_type, color=colors[solver_type])
         ax.set_xlabel('Time')
         ax.set_ylabel('Closed Loop Cost')
         ax.legend()
 
-        time_msg = f'{solver_type} --- Closed loop cost progress: {str(closed_loop_cost_values_prog)} \n'
+        time_msg = f'{solver_type} --- Closed loop cost prog: {str(closed_loop_cost_value_prog)} \n'
         f.write(time_msg)
         print(time_msg)
 
@@ -257,7 +254,7 @@ if __name__ == "__main__":
         results[solver] = result
 
     init_theta = init_state['theta']
-    exp_name = f'./results/results_closedLoopCostProgress_{init_theta:.2f}.pickle'
+    exp_name = f'./results/results_closedLoopCostProg_{init_theta:.2f}.pickle'
     with open(exp_name, 'wb') as f:
         pickle.dump(results, f)
-    plot_results(results, f'Simulation Results for closed loop cost Progress Angle {init_theta:.2f}')
+    plot_results(results, f'Simulation Results for closed loop cost Progress {init_theta:.2f}')
