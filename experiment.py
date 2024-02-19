@@ -38,10 +38,6 @@ def experiment(solver_type, init_state, goal_state, args):
     ex_W = 100.0
     f_rate_W = 0.01
 
-    # Bounds
-    # bounds = []
-    # for _ in range(P):
-    #     bounds.append((-50, 50))
     clip_value = 80
 
     # Initialize the model and MPC optimizer
@@ -219,6 +215,6 @@ if __name__ == "__main__":
         exp_name = f'./results/results_{init_theta:.2f}.pickle'
         with open(exp_name, 'wb') as f:
             pickle.dump(results, f)
-        plot_results(results, f'Simulation Results, Angle {init_theta:.2f}, Noise std 0.02')
+        plot_results(results, f'Angle {init_theta:.2f}, Noise std 0.02')
 
         
