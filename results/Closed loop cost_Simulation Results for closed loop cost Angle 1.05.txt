@@ -1,0 +1,5 @@
+ipopt --- Closed loop cost: 2982.18 
+SLSQP --- Closed loop cost: 2935.38 
+BFGS --- Closed loop cost: 2768.01 
+CG --- Closed loop cost: 2779.74 
+Powell --- Closed loop cost: 2656.73 

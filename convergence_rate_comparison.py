@@ -1,15 +1,18 @@
+import pickle
+
 import numpy as np
 import cv2
 import time
 import argparse
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
+from casadi_.convergence_rate import casadi_experiment
 from controlled_cart_and_pendulum import objective
 from inverted_pendulum_model import InvertedPendulum
 from inverted_pendulum_viz import InvertedPendulumViz
 
 
-def close_loop_cost(solver_type,init_state, goal_state, args):
+def convergence_rate(solver_type,init_state, goal_state, args):
     sim_iter = 0
     state_logs = []
     error_logs = []
@@ -45,7 +48,7 @@ def close_loop_cost(solver_type,init_state, goal_state, args):
     clip_value = 80
 
     # Initialize the model and MPC optimizer
-    pendulum_system = InvertedPendulum(m=0.1, M=5.0, L=0.3)
+    pendulum_system = InvertedPendulum(m=0.1, M=5.0, L=0.3, uncertainty_gaussian_std=0.02)
     # pendulum_system.uncertainty_gaussian_std = 0.02
 
     # Instantiate the model and visualization classes
@@ -165,7 +168,7 @@ def close_loop_cost(solver_type,init_state, goal_state, args):
     return (state_logs, error_logs, convergence_rate_values, goal_x, goal_theta, sim_iter)
 
 def plot_results(results, title):
-    fig, axs = plt.subplots(4, 1, figsize=(10, 10))
+    fig, ax = plt.subplots(figsize=(10, 6))
     fig.suptitle(title)
     convergence_rates =[]
     f = open(f"convergence rate_{title}.txt", "w")
@@ -176,20 +179,20 @@ def plot_results(results, title):
         cart_poss = [s.x for s in state_logs]
         pendulum_angles = [s.theta for s in state_logs]
         idx = np.arange(len(cart_poss))
-        # Plot cart position
-        axs[0].plot(idx, cart_poss, label=solver_type)
-        axs[0].set_xlabel('Time')
-        axs[0].set_ylabel('Cart Position')
-
-        # Plot pendulum angle
-        axs[1].plot(idx, pendulum_angles, label=solver_type)
-        axs[1].set_xlabel('Time')
-        axs[1].set_ylabel('Pendulum Angle')
-
-        # Objective
-        axs[2].plot(idx, error_logs, label=solver_type)
-        axs[2].set_xlabel('Time')
-        axs[2].set_ylabel('Error')
+        # # Plot cart position
+        # axs[0].plot(idx, cart_poss, label=solver_type)
+        # axs[0].set_xlabel('Time')
+        # axs[0].set_ylabel('Cart Position')
+        #
+        # # Plot pendulum angle
+        # axs[1].plot(idx, pendulum_angles, label=solver_type)
+        # axs[1].set_xlabel('Time')
+        # axs[1].set_ylabel('Pendulum Angle')
+        #
+        # # Objective
+        # axs[2].plot(idx, error_logs, label=solver_type)
+        # axs[2].set_xlabel('Time')
+        # axs[2].set_ylabel('Error')
 
         convergence_rates.append(convergence_rate_values)
         time_msg = f'{solver_type} --- Mean: {int(np.mean(convergence_rate_values))}, Max: {np.max(convergence_rate_values):.2f}, Min: {np.min(convergence_rate_values):.2f} \n'
@@ -199,18 +202,19 @@ def plot_results(results, title):
     f.close()
 
     # Convergence rate
-    axs[3].boxplot(convergence_rates, labels=results.keys(), showfliers=False, whis=(0, 100))
-    axs[3].set_xlabel('Time')
-    axs[3].set_ylabel('Convergence rate')
+    ax.boxplot(convergence_rates, labels=results.keys(), showfliers=False, whis=(0, 100),showmeans=True,
+                    meanline=True, notch=False, showbox=False)
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Convergence rate')
     plt.yscale('log')
 
-    axs[0].axhline(y=goal_x, color='red', linestyle='--', label='Target', linewidth=2)
-    axs[1].axhline(y=goal_theta, color='red', linestyle='--', label='Target', linewidth=2)
+    # axs[0].axhline(y=goal_x, color='red', linestyle='--', label='Target', linewidth=2)
+    # axs[1].axhline(y=goal_theta, color='red', linestyle='--', label='Target', linewidth=2)
 
-    axs[0].legend()
-    axs[1].legend()
-    axs[2].legend()
-    axs[3].legend()
+    # axs[0].legend()
+    # axs[1].legend()
+    # axs[2].legend()
+    ax.legend()
 
     # Adjust layout
     plt.tight_layout()
@@ -226,13 +230,20 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--plot', action='store_true')
     args = parser.parse_args()
 
-    optimization_methods = ['SLSQP', 'BFGS', 'CG', 'Powell']
-    init_state = {'theta': np.pi, 'x': 0}
+    optimization_methods = ['ipopt', 'SLSQP', 'BFGS', 'CG', 'Powell']
+    init_state = {'theta': np.pi/3, 'x': 0}
     goal_state = {'theta': np.pi / 2, 'x': 1}
     results = {}
     for solver in optimization_methods:
-        result = close_loop_cost(solver, init_state, goal_state, args)
+        print(f'{solver=}')
+        if solver == 'ipopt':
+            result = casadi_experiment(solver, init_state, goal_state, args)
+        else:
+            result = convergence_rate(solver, init_state, goal_state, args)
         results[solver] = result
 
     init_theta = init_state['theta']
+    exp_name = f'./results/results_convergenceRate_{init_theta:.2f}.pickle'
+    with open(exp_name, 'wb') as f:
+        pickle.dump(results, f)
     plot_results(results, f'Simulation Results for convergence rate Angle {init_theta:.2f}')

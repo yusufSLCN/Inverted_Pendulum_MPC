@@ -1,8 +1,11 @@
+import pickle
+
 import numpy as np
 import cv2
 import time
 import argparse
 import matplotlib.pyplot as plt
+from casadi_.closed_loop_cost import casadi_experiment
 from scipy.optimize import minimize
 from controlled_cart_and_pendulum import objective
 from inverted_pendulum_model import InvertedPendulum
@@ -46,7 +49,7 @@ def close_loop_cost(solver_type,init_state, goal_state, args):
     clip_value = 80
 
     # Initialize the model and MPC optimizer
-    pendulum_system = InvertedPendulum(m=0.1, M=5.0, L=0.3)
+    pendulum_system = InvertedPendulum(m=0.1, M=5.0, L=0.3, uncertainty_gaussian_std=0.02)
     # pendulum_system.uncertainty_gaussian_std = 0.02
 
     # Instantiate the model and visualization classes
@@ -75,6 +78,7 @@ def close_loop_cost(solver_type,init_state, goal_state, args):
     global closed_loop_cost_value
     global closed_loop_cost_values
     closed_loop_cost_value = 0.00
+    closed_loop_cost_values = []
 
     # MPC Control Loop
     for i in range(num_steps):
@@ -95,8 +99,9 @@ def close_loop_cost(solver_type,init_state, goal_state, args):
         clipped_force = clip_value if optimal_controls[0] >= clip_value else optimal_controls[0]
         clipped_force = -clip_value if optimal_controls[0] <= -clip_value else clipped_force
         pendulum_system.inputs.force = clipped_force
-
+        closed_loop_cost_values.append(closed_loop_cost_value)
         closed_loop_cost_value += dt * result.fun
+
         print(closed_loop_cost_value)
 
         pendulum_system.inputs.force = optimal_controls[0]
@@ -130,7 +135,7 @@ def close_loop_cost(solver_type,init_state, goal_state, args):
         # Break the loop if 'q' key is pressed
         if cv2.waitKey(int(dt * 1000)) & 0xFF == ord('q'):
             break
-    closed_loop_cost_values.append(closed_loop_cost_value)
+
     cv2.destroyAllWindows()
 
     if args.plot:
@@ -175,55 +180,55 @@ def close_loop_cost(solver_type,init_state, goal_state, args):
         plt.show()
         # plt.savefig(title + '.png')
 
-    return (state_logs, error_logs, goal_x, goal_theta, sim_iter)
+    return (state_logs, error_logs, closed_loop_cost_values, goal_x, goal_theta, sim_iter)
 
 def plot_results(results, title):
-    fig, axs = plt.subplots(4, 1, figsize=(10, 10))
+    fig, ax = plt.subplots(figsize=(10, 10))
     fig.suptitle(title)
-    f = open(f"Closed loop cost_{title}.txt", "w")
+    f = open(f"Closed loop cost_progress_{title}.txt", "w")
 
     for i, solver_type in enumerate(results):
-        state_logs, error_logs, goal_x, goal_theta, sim_iter = results[solver_type]
+        state_logs, error_logs, closed_loop_cost_values_prog, goal_x, goal_theta, sim_iter = results[solver_type]
 
         cart_poss = [s.x for s in state_logs]
         pendulum_angles = [s.theta for s in state_logs]
         idx = np.arange(len(cart_poss))
-        # Plot cart position
-        axs[0].plot(idx, cart_poss, label=solver_type)
-        axs[0].set_xlabel('Time')
-        axs[0].set_ylabel('Cart Position')
+        # # Plot cart position
+        # axs[0].plot(idx, cart_poss, label=solver_type)
+        # axs[0].set_xlabel('Time')
+        # axs[0].set_ylabel('Cart Position')
+        #
+        # # Plot pendulum angle
+        # axs[1].plot(idx, pendulum_angles, label=solver_type)
+        # axs[1].set_xlabel('Time')
+        # axs[1].set_ylabel('Pendulum Angle')
+        #
+        # # Objective
+        # axs[2].plot(idx, error_logs, label=solver_type)
+        # axs[2].set_xlabel('Time')
+        # axs[2].set_ylabel('Error')
 
-        # Plot pendulum angle
-        axs[1].plot(idx, pendulum_angles, label=solver_type)
-        axs[1].set_xlabel('Time')
-        axs[1].set_ylabel('Pendulum Angle')
 
-        # Objective
-        axs[2].plot(idx, error_logs, label=solver_type)
-        axs[2].set_xlabel('Time')
-        axs[2].set_ylabel('Error')
+        colors = {'ipopt': 'magenta', 'SLSQP': 'blue', 'BFGS': 'orange', 'CG': 'green', 'Powell': 'red' }
+        y_values = np.arange(len(colors))
+        ax.plot(idx, closed_loop_cost_values_prog, label=solver_type, color=colors[solver_type])
+        ax.set_xlabel('Time')
+        ax.set_ylabel('Closed Loop Cost')
+        ax.legend()
 
-        print(closed_loop_cost_values)
-        colors = {'SLSQP': 'blue', 'BFGS': 'orange', 'CG': 'green', 'Powell': 'red' }
-        y_values = np.arange(len(closed_loop_cost_values))
-        axs[3].bar(y_values[i], closed_loop_cost_values[i], label=solver_type, color=colors[solver_type])
-        axs[3].set_xlabel('Time')
-        axs[3].set_ylabel('Closed Loop Cost')
-        axs[3].legend()
-
-        time_msg = f'{solver_type} --- Closed loop cost: {np.max(closed_loop_cost_values[i]):.2f} \n'
+        time_msg = f'{solver_type} --- Closed loop cost progress: {str(closed_loop_cost_values_prog)} \n'
         f.write(time_msg)
         print(time_msg)
 
     f.close()
 
-    axs[0].axhline(y=goal_x, color='red', linestyle='--', label='Target', linewidth=2)
-    axs[1].axhline(y=goal_theta, color='red', linestyle='--', label='Target', linewidth=2)
-
-    axs[0].legend()
-    axs[1].legend()
-    axs[2].legend()
-    axs[3].legend()
+    # axs[0].axhline(y=goal_x, color='red', linestyle='--', label='Target', linewidth=2)
+    # axs[1].axhline(y=goal_theta, color='red', linestyle='--', label='Target', linewidth=2)
+    #
+    # axs[0].legend()
+    # axs[1].legend()
+    # axs[2].legend()
+    ax.legend()
 
     # Adjust layout
     plt.tight_layout()
@@ -239,13 +244,20 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--plot', action='store_true')
     args = parser.parse_args()
 
-    optimization_methods = ['SLSQP', 'BFGS', 'CG', 'Powell']
-    init_state = {'theta': np.pi, 'x': 0}
+    optimization_methods = ['ipopt', 'SLSQP', 'BFGS', 'CG', 'Powell']
+    init_state = {'theta': np.pi/3, 'x': 0}
     goal_state = {'theta': np.pi / 2, 'x': 1}
     results = {}
     for solver in optimization_methods:
-        result = close_loop_cost(solver, init_state, goal_state, args)
+        print(f'{solver=}')
+        if solver == 'ipopt':
+            result = casadi_experiment(solver, init_state, goal_state, args)
+        else:
+            result = close_loop_cost(solver, init_state, goal_state, args)
         results[solver] = result
 
     init_theta = init_state['theta']
-    plot_results(results, f'Simulation Results for closed loop cost Angle {init_theta:.2f}')
+    exp_name = f'./results/results_closedLoopCostProgress_{init_theta:.2f}.pickle'
+    with open(exp_name, 'wb') as f:
+        pickle.dump(results, f)
+    plot_results(results, f'Simulation Results for closed loop cost Progress Angle {init_theta:.2f}')
