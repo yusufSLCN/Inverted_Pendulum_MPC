@@ -180,7 +180,7 @@ def close_loop_cost(solver_type,init_state, goal_state, args):
     return (state_logs, error_logs, closed_loop_cost_values, goal_x, goal_theta, sim_iter)
 
 def plot_results(results, title):
-    fig, ax = plt.subplots(figsize=(10, 10))
+    fig, ax = plt.subplots(figsize=(7, 7))
     fig.suptitle(title)
     f = open(f"Closed loop cost_progress_{title}.txt", "w")
 

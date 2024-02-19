@@ -166,7 +166,7 @@ def convergence_rate(solver_type,init_state, goal_state, args):
     return (state_logs, error_logs, convergence_rate_values, goal_x, goal_theta, sim_iter)
 
 def plot_results(results, title):
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(6, 6))
     fig.suptitle(title)
     convergence_rates =[]
     f = open(f"convergence rate_{title}.txt", "w")
