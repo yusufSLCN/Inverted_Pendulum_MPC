@@ -207,7 +207,6 @@ def plot_results(results, title):
 
 
         colors = {'ipopt': 'magenta', 'SLSQP': 'blue', 'BFGS': 'orange', 'CG': 'green', 'Powell': 'red' }
-        y_values = np.arange(len(colors))
         ax.plot(closed_loop_cost_value_prog, label=solver_type, color=colors[solver_type])
         ax.set_xlabel('Time')
         ax.set_ylabel('Closed Loop Cost')
