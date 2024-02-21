@@ -4,7 +4,6 @@ import time
 from scipy.optimize import minimize
 from inverted_pendulum_model import InvertedPendulum
 from inverted_pendulum_viz import InvertedPendulumViz
-from interactive_plot import InteractivePlot
 
 
 # MPC Objective Function
@@ -17,11 +16,7 @@ def objective(x, args_dict):
     P = args_dict['P']
     eth_W = args_dict['eth_W']
     ex_W = args_dict['ex_W']
-    f_rate_W = args_dict['f_rate_W']
     dt = args_dict['dt']
-    m = args_dict['m']
-    M = args_dict['M']
-    L = args_dict['L']
     vir_model = args_dict['vir_model']
     
     Error = 0
@@ -93,9 +88,6 @@ def main():
     # Instantiate the model and visualization classes    
     viz = InvertedPendulumViz(x_start=-5, x_end=5, pendulum_len=1)
 
-    # Create an instance of the InteractivePlot class
-    interactive_plot = InteractivePlot()
-    
     # Initial state
     pendulum_system.state = pendulum_system.State(cart_position=0.0, pendulum_angle=1.57)
     init_state = pendulum_system.state

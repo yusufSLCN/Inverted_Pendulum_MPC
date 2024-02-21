@@ -1,1 +1,0 @@
-ipopt --- Mean: 0.47, Max: 0.56, Min: 0.45 
