@@ -1,6 +1,5 @@
 import numpy as np
 import os
-from noise_gen import generate_and_save_random_values, read_random_values
 
 class InvertedPendulum:
     def __init__(self, L=1.0, m=0.1, M=1.0, g=9.8, uncertainty_gaussian_std = 0):
@@ -9,12 +8,8 @@ class InvertedPendulum:
         self.M = M  # Mass of the cart
         self.g = g  # Gravitational acceleration
         self.uncertainty_gaussian_std = uncertainty_gaussian_std
-        self.noise_file = f'noise_{uncertainty_gaussian_std}.txt'
+
         if uncertainty_gaussian_std > 0:
-            # if not os.path.isfile(self.noise_file):
-            #     generate_and_save_random_values(2000, self.noise_file, 0, uncertainty_gaussian_std)
-            # self.noise = read_random_values(self.noise_file)
-            # np.random.seed(0)
             self.noise = np.random.normal(0, uncertainty_gaussian_std, 2000)
             
         self.sim_iter = 0

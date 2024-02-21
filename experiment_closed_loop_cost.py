@@ -135,48 +135,6 @@ def close_loop_cost(solver_type,init_state, goal_state, args):
 
     cv2.destroyAllWindows()
 
-    if args.plot:
-        cart_poss = [s.x for s in state_logs]
-        pendulum_angles = [s.theta for s in state_logs]
-        idx = np.arange(len(cart_poss))
-
-        fig, axs = plt.subplots(3, 1, figsize=(10, 6))
-
-        title = f'{solver_type} Simulation Results'
-        fig.suptitle(title)
-
-        # Plot cart position
-        axs[0].plot(idx, cart_poss, label='Cart Position')
-        axs[0].axhline(y=goal_x, color='red', linestyle='--', label='Target', linewidth=2)
-        axs[0].set_xlabel('Time')
-        axs[0].set_ylabel('Position')
-        axs[0].legend()
-
-        # Plot pendulum angle
-        axs[1].plot(idx, pendulum_angles, label='Pendulum Angle')
-        axs[1].axhline(y=goal_theta, color='red', linestyle='--', label='Target', linewidth=2)
-        axs[1].set_xlabel('Time')
-        axs[1].set_ylabel('Angle')
-        axs[1].legend()
-
-        # Objective
-        axs[2].plot(idx, error_logs, label='Error')
-        axs[2].set_xlabel('Time')
-        axs[2].set_ylabel('Error')
-        axs[2].legend()
-
-        axs[3].plot(idx, closed_loop_cost_values, label='Cost')
-        axs[3].set_xlabel('Time')
-        axs[3].set_ylabel('Closed Loop Cost')
-        axs[3].legend()
-
-        # Adjust layout
-        plt.tight_layout()
-
-        # Show the plots
-        plt.show()
-        # plt.savefig(title + '.png')
-
     return (state_logs, error_logs, closed_loop_cost_values, goal_x, goal_theta, sim_iter)
 
 def plot_results(results, title):

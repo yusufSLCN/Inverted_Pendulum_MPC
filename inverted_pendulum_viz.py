@@ -1,6 +1,3 @@
-### This file contains the drawing part for various systems. Given a state vector
-### Will return an imageself.
-
 import numpy as np
 import cv2
 from inverted_pendulum_model import InvertedPendulum

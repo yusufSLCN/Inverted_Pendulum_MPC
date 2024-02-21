@@ -32,9 +32,6 @@ def objective(x, args_dict):
         Error += ex_W * (next_state.x - goal_x) ** 2
         # Penalize control effort
         Error += 0.1 * (x[i] ** 2)
-        #  Penalize control changes
-        # if i > 0:
-        #     Error += f_rate_W * np.abs(x[i] - x[i - 1]) ** 2
 
         init_state_1 = next_state
     return Error

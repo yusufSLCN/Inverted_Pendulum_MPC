@@ -1,7 +1,7 @@
 import pickle
 import os
 import numpy as np
-from number_of_iterations import plot_results
+from experiment_number_of_iterations import plot_results
 
 if __name__ == "__main__":
     init_theta = np.pi/3

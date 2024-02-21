@@ -8,7 +8,7 @@ from scipy.optimize import minimize
 from controlled_cart_and_pendulum import objective
 from inverted_pendulum_model import InvertedPendulum
 from inverted_pendulum_viz import InvertedPendulumViz
-from casadi_.casadi_experiment import casadi_experiment
+from casadi_.time import casadi_experiment
 
 
 def experiment(solver_type, init_state, goal_state, args):
