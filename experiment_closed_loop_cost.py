@@ -41,10 +41,6 @@ def close_loop_cost(solver_type,init_state, goal_state, args):
     ex_W = 100.0
     f_rate_W = 0.01
 
-    # Bounds
-    # bounds = []
-    # for _ in range(P):
-    #     bounds.append((-100, 100))
 
     clip_value = 80
 
@@ -148,21 +144,6 @@ def plot_results(results, title):
         cart_poss = [s.x for s in state_logs]
         pendulum_angles = [s.theta for s in state_logs]
         idx = np.arange(len(cart_poss))
-        # # Plot cart position
-        # axs[0].plot(idx, cart_poss, label=solver_type)
-        # axs[0].set_xlabel('Time')
-        # axs[0].set_ylabel('Cart Position')
-        #
-        # # Plot pendulum angle
-        # axs[1].plot(idx, pendulum_angles, label=solver_type)
-        # axs[1].set_xlabel('Time')
-        # axs[1].set_ylabel('Pendulum Angle')
-        #
-        # # Objective
-        # axs[2].plot(idx, error_logs, label=solver_type)
-        # axs[2].set_xlabel('Time')
-        # axs[2].set_ylabel('Error')
-
 
         colors = {'ipopt': 'magenta', 'SLSQP': 'blue', 'BFGS': 'orange', 'CG': 'green', 'Powell': 'red' }
         ax.plot(closed_loop_cost_value_prog, label=solver_type, color=colors[solver_type])
@@ -176,12 +157,6 @@ def plot_results(results, title):
 
     f.close()
 
-    # axs[0].axhline(y=goal_x, color='red', linestyle='--', label='Target', linewidth=2)
-    # axs[1].axhline(y=goal_theta, color='red', linestyle='--', label='Target', linewidth=2)
-    #
-    # axs[0].legend()
-    # axs[1].legend()
-    # axs[2].legend()
     ax.legend()
 
     # Adjust layout
